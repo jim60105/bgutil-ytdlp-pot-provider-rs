@@ -181,13 +181,13 @@ export class SessionManager {
                             return response.data;
                         },
                     };
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 } catch (e) {
                     return {
                         ok: false,
                         json: async () => {
                             return null;
                         },
+                        status: e.response?.status || e.code,
                     };
                 }
             },
@@ -201,7 +201,8 @@ export class SessionManager {
             challenge = await BG.Challenge.create(bgConfig);
         } catch (e) {
             throw new Error(
-                `Error while attempting to retrieve BG challenge. err = ${e}`,
+                `Error while attempting to retrieve BG challenge. err = ${JSON.stringify(e)}`,
+                { cause: e },
             );
         }
         if (!challenge) throw new Error("Could not get Botguard challenge");
@@ -221,7 +222,8 @@ export class SessionManager {
             });
         } catch (e) {
             throw new Error(
-                `Error while trying to generate PO token. e = ${e}`,
+                `Error while trying to generate PO token. err.name = ${e.name}. err.message = ${e.message}. err.stack = ${e.stack}`,
+                { cause: e },
             );
         }
 
