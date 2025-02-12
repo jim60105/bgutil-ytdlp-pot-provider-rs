@@ -110,20 +110,31 @@ export class SessionManager {
             proxy = `http://${proxy}`;
         }
 
+        let loggedProxy: string = proxy;
+        try {
+            const parsedUrl = new URL(proxy);
+            if (parsedUrl.password) {
+                loggedProxy = proxy.replace(parsedUrl.password, "****");
+            }
+        } catch (e) {
+            this.logger.warn(`Fail to parse proxy url ${proxy}: ${e}`);
+            return undefined;
+        }
+
         switch (protocol) {
             case "http":
             case "https":
-                this.logger.log(`Using HTTP/HTTPS proxy: ${proxy}`);
+                this.logger.log(`Using HTTP/HTTPS proxy: ${loggedProxy}`);
                 return new HttpsProxyAgent(proxy);
             case "socks":
             case "socks4":
             case "socks4a":
             case "socks5":
             case "socks5h":
-                this.logger.log(`Using SOCKS proxy: ${proxy}`);
+                this.logger.log(`Using SOCKS proxy: ${loggedProxy}`);
                 return new SocksProxyAgent(proxy);
             default:
-                this.logger.warn(`Unsupported proxy protocol: ${proxy}`);
+                this.logger.warn(`Unsupported proxy protocol: ${loggedProxy}`);
                 return undefined;
         }
     }
