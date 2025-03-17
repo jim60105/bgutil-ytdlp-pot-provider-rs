@@ -10,7 +10,7 @@
 
 A proof-of-origin token (POT) provider to be used alongside [coletdjnz's POT plugin framework](https://github.com/coletdjnz/yt-dlp-get-pot). We use [LuanRT's Botguard interfacing library](https://github.com/LuanRT/BgUtils) to generate the token.
 
-This is used to bypass the 'Sign in to confirm you're not a bot' message when invoking yt-dlp from an IP address flagged by YouTube. See _[What is a PO Token?](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide)_ for more details.
+This is used to bypass the 'Sign in to confirm you're not a bot' message when invoking yt-dlp from an IP address flagged by YouTube. See _[PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)_ for more details.
 
 The provider comes in two parts:
 
@@ -54,22 +54,31 @@ node build/main.js
 ```
 
 <details>
-  <summary>Server Endpoints/Environment Variables</summary>
+  <summary>Server Command Line Options/Endpoints/Environment Variables</summary>
 
-**Environment Variables**
-
-- **TOKEN_TTL**: The time in hours for a PO token to be considered valid. While there are no definitive answers on how long a token is valid, it has been observed to be valid for atleast a couple of days. Default: 6
+**Options**
+- `-p, --port <PORT>`: The port on which the server listens.
+- `--verbose`: Use verbose logging
 
 **Endpoints**
 
-- **POST /get_pot**: Accepts a `visitor_data` (unauthenticated), `data_sync_id` (authenticated) or an empty body in the request body. If no identifier is passed, a new unauthenticated `visitor_data` will be generated. Returns `po_token` and the associated identifier `visit_identifier`.
-- **POST /invalidate_caches**: Resets the PO token cache, forcing new tokens to be generated on next fetch.
+- **POST /get_pot**: Generate a new POT.
+  - The request data should be a JSON including:
+    - `content_binding`: [Content binding](#content-binding) (required).
+    - `proxy`: A string indicating the proxy to use for the requests (optional).
+  - Returns a JSON:
+    - `po_token`: The POT.
 - **GET /ping**: Ping the server. The response includes:
-  - `logging`: Logging verbosity(`normal` or `verbose`)
+  - `logging`: Logging verbosity(`normal` or `verbose`).
   - `token_ttl_hours`: The current applied `TOKEN_TTL` value, defaults to 6.
-  - `server_uptime`: Uptime of the server process.
+  - `server_uptime`: Uptime of the server process in seconds.
   - `version`: Current server version.
-  </details>
+
+**Environment Variables**
+
+- **TOKEN_TTL**: The time in hours for a PO token to be considered valid. While there are no definitive answers on how long a token is valid, it has been observed to be valid for atleast a couple of days (Default: 6).
+
+</details>
 
 #### (b) Generation Script Option
 
@@ -88,6 +97,22 @@ npx tsc
 ```
 
 2. Make sure `node` is available in your `PATH`.
+
+<details>
+  <summary>Script Options/Environment Variables</summary>
+
+**Options**
+
+- `-c, --content-binding <content-binding>`: The [content binding](#content-binding), required.
+- `-p, --proxy <proxy-all>`: The proxy to use for the requests, optional.
+- `--version`: Print the script version and exit.
+- `--verbose`: Use verbose logging.
+
+**Environment Variables**
+
+- **TOKEN_TTL**: The time in hours for a PO token to be considered valid. While there are no definitive answers on how long a token is valid, it has been observed to be valid for atleast a couple of days (Default: 6).
+
+</details>
 
 ### 2. Install the plugin
 
@@ -130,9 +155,26 @@ If you installed the script in a different location, pass it as the extractor ar
 --extractor-args "youtube:getpot_bgutil_script=$WORKSPACE/bgutil-ytdlp-pot-provider/server/build/generate_once.js"
 ```
 
+Note that if you want to pass multiple arguments to the `youtube` extractor, use a `;` seperated list.
+
+For example, you can use `--extractor-args "youtube:player_client=web;getpot_bgutil_script=/path/to/bgutil-ytdlp-pot-provider/server/build/generate_once.js"` if you want to set the youtube player client to web and use a custom script path.
+
+---
+
+We use a cache internally for all generated tokens. You can change the TTL (time to live) for the token cache with the environment variable `TOKEN_TTL`. It's currently impossible to use different TTLs for different token contexts (can be `gvs` or `player`, see [Technical Details](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#technical-details) in the PO Token Guide). The environment variable is in hours and defaults to 6.  
+When using the script method, the environment variables will be passed down to the script. You can pass a `TOKEN_TTL` to yt-dlp to use a custom TTL.
+
 ---
 
 If both methods are available for use, the option (b) script will be prioritized.
+
+### Content Binding
+
+Content binding refers to the data used to generate a PO Token.
+
+GVS tokens (See [PO Tokens for GVS](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#po-tokens-for-gvs) from the PO Token Guide) are all session-bound so the content binding for a GVS token is either a Visitor ID (also known as `visitorData`, `VISITOR_INFO1_LIVE`, used when not logged in) or the account Session ID (first part of the Data Sync ID, used when logged in).
+
+Player tokens are mostly content-bound and their content bindings are the video IDs. Note that the `web_music` client uses the session token instead of video ID to generate player tokens.
 
 ### Verification
 

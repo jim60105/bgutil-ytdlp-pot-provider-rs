@@ -23,43 +23,28 @@ console.log(`Started POT server on port ${PORT_NUMBER}`);
 
 const sessionManager = new SessionManager(options.verbose || false);
 httpServer.post("/get_pot", async (request, response) => {
-    const visitorData = request.body.visitor_data as string;
-    const dataSyncId = request.body.data_sync_id as string;
     const proxy: string = request.body.proxy;
-    let visitIdentifier: string;
-
-    // prioritize data sync id for authenticated requests, if passed
-    if (dataSyncId) {
-        console.log(`Received request for data sync ID: '${dataSyncId}'`);
-        visitIdentifier = dataSyncId;
-    } else if (visitorData) {
-        console.log(`Received request for visitor data: '${visitorData}'`);
-        visitIdentifier = visitorData;
-    } else {
-        console.log(
-            `Received request for visitor data, grabbing from Innertube`,
+    const contentBinding = (request.body.content_binding ||
+        request.body.data_sync_id ||
+        request.body.visitor_data) as string;
+    if (request.body.data_sync_id)
+        console.warn(
+            "Passing data_sync_id is deprecated, use content_binding instead",
         );
 
-        const generatedVisitorData = await sessionManager.generateVisitorData();
-        if (!generatedVisitorData) {
-            response.status(500);
-            response.send({ error: "Error generating visitor data" });
-            return;
-        }
-
-        console.log(`Generated visitor data: ${generatedVisitorData}`);
-        visitIdentifier = generatedVisitorData;
+    if (!contentBinding) {
+        response.status(400).send({ error: "No content binding provided" });
+        return;
     }
 
     try {
         const sessionData = await sessionManager.generatePoToken(
-            visitIdentifier,
+            contentBinding,
             proxy,
         );
 
         response.send({
             po_token: sessionData.poToken,
-            visit_identifier: sessionData.visitIdentifier,
         });
     } catch (e) {
         console.error(

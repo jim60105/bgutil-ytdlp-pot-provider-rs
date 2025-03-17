@@ -1,6 +1,5 @@
 import { BG, BgConfig, DescrambledChallenge } from "bgutils-js";
 import { JSDOM } from "jsdom";
-import { Innertube } from "youtubei.js";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import axios from "axios";
 import { Agent } from "https";
@@ -32,11 +31,12 @@ class Logger {
     }
 
     warn(msg: string) {
-        if (this.shouldLog) console.warn(msg);
+        // stderr should always be shown
+        console.warn(msg);
     }
 
     error(msg: string) {
-        if (this.shouldLog) console.error(msg);
+        console.error(msg);
     }
 }
 
@@ -86,17 +86,6 @@ export class SessionManager {
         this.youtubeSessionDataCaches = youtubeSessionData || {};
     }
 
-    async generateVisitorData(): Promise<string | null> {
-        const innertube = await Innertube.create({ retrieve_player: false });
-        const visitorData = innertube.session.context.client.visitorData;
-        if (!visitorData) {
-            this.logger.error("Unable to generate visitor data via Innertube");
-            return null;
-        }
-
-        return visitorData;
-    }
-
     getProxyDispatcher(proxy: string | undefined): Agent | undefined {
         if (!proxy) return undefined;
         let protocol: string;
@@ -140,20 +129,21 @@ export class SessionManager {
     }
     // mostly copied from https://github.com/LuanRT/BgUtils/tree/main/examples/node
     async generatePoToken(
-        visitIdentifier: string,
+        contentBinding: string,
         proxy: string = "",
     ): Promise<YoutubeSessionData> {
+        this.logger.log(`Generating POT for ${contentBinding}`);
         this.cleanupCaches();
-        const sessionData = this.youtubeSessionDataCaches[visitIdentifier];
+        const sessionData = this.youtubeSessionDataCaches[contentBinding];
         if (sessionData) {
             this.logger.log(
-                `POT for ${visitIdentifier} still fresh, returning cached token`,
+                `POT for ${contentBinding} still fresh, returning cached token`,
             );
             return sessionData;
         }
 
         this.logger.log(
-            `POT for ${visitIdentifier} stale or not yet generated, generating...`,
+            `POT for ${contentBinding} stale or not yet generated, generating...`,
         );
 
         // hardcoded API key that has been used by youtube for years
@@ -207,7 +197,7 @@ export class SessionManager {
                 }
             },
             globalObj: globalThis,
-            identifier: visitIdentifier,
+            identifier: contentBinding,
             requestKey,
         };
 
@@ -246,20 +236,18 @@ export class SessionManager {
             );
         }
 
-        this.logger.log(`po_token: ${poToken}`);
-        this.logger.log(`visit_identifier: ${visitIdentifier}`);
-
         if (!poToken) {
-            throw new Error("po_token unexpected undefined");
+            throw new Error("poToken unexpected undefined");
         }
 
+        this.logger.log(`poToken: ${poToken}`);
         const youtubeSessionData = {
-            visitIdentifier: visitIdentifier,
+            visitIdentifier: contentBinding,
             poToken: poToken,
             generatedAt: new Date(),
         };
 
-        this.youtubeSessionDataCaches[visitIdentifier] = youtubeSessionData;
+        this.youtubeSessionDataCaches[contentBinding] = youtubeSessionData;
 
         return youtubeSessionData;
     }

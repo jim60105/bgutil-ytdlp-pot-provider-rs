@@ -1,4 +1,5 @@
 import { SessionManager, YoutubeSessionDataCaches } from "./session_manager";
+import { VERSION } from "./version";
 import { Command } from "@commander-js/extra-typings";
 import * as fs from "fs";
 import * as path from "path";
@@ -28,20 +29,31 @@ if (!fs.existsSync(cachedir)) {
 const CACHE_PATH = path.resolve(cachedir, "cache.json");
 
 const program = new Command()
+    .option("-c, --content-binding <content-binding>")
     .option("-v, --visitor-data <visitordata>")
     .option("-d, --data-sync-id <data-sync-id>")
     .option("-p, --proxy <proxy-all>")
+    .option("--version")
     .option("--verbose");
 
 program.parse();
 const options = program.opts();
 
 (async () => {
-    const visitorData = options.visitorData;
-    const dataSyncId = options.dataSyncId;
+    if (options.version) {
+        console.log(VERSION);
+        process.exit(0);
+    }
+    const contentBinding =
+        options.contentBinding || options.dataSyncId || options.visitorData;
+    if (options.dataSyncId)
+        console.warn("Data sync id is deprecated, use -c instead");
+    if (!contentBinding) {
+        console.error("No content binding provided");
+        process.exit(1);
+    }
     const proxy = options.proxy || "";
     const verbose = options.verbose || false;
-    let visitIdentifier: string;
     const cache: YoutubeSessionDataCaches = {};
     if (fs.existsSync(CACHE_PATH)) {
         try {
@@ -68,23 +80,11 @@ const options = program.opts();
         if (verbose) console.log(msg);
     }
 
-    if (dataSyncId) {
-        log(`Received request for data sync ID: '${dataSyncId}'`);
-        visitIdentifier = dataSyncId;
-    } else if (visitorData) {
-        log(`Received request for visitor data: '${visitorData}'`);
-        visitIdentifier = visitorData;
-    } else {
-        log(`Received request for visitor data, grabbing from Innertube`);
-        const generatedVisitorData = await sessionManager.generateVisitorData();
-        if (!generatedVisitorData) process.exit(1);
-        log(`Generated visitor data: ${generatedVisitorData}`);
-        visitIdentifier = generatedVisitorData;
-    }
+    log(`Received request for visitor data: '${contentBinding}'`);
 
     try {
         const sessionData = await sessionManager.generatePoToken(
-            visitIdentifier,
+            contentBinding,
             proxy,
         );
 
