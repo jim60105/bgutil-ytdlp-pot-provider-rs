@@ -36,18 +36,27 @@ else:
                     f'{base_url}/ping', extensions={'timeout': self._GET_VSN_TIMEOUT}, proxies={'all': None})))
             except TransportError as e:
                 # the server may be down
-                self._warn_and_raise(
-                    f'Error reaching GET /ping (caused by {e.__class__.__name__})')
+                script_path_provided = self._get_config_setting(
+                    'getpot_bgutil_script', default=None) is not None
+                warning_base = f'Error reaching GET {base_url}/ping (caused by {e.__class__.__name__}). '
+                if script_path_provided:  # server down is expected, log info
+                    self._info_and_raise(warning_base + 'This is expected if you are using the script method.')
+                else:
+                    self._warn_and_raise(warning_base + f'Please make sure that the server is reachable at {base_url}.')
             except HTTPError as e:
                 # may be an old server, don't raise
-                self._logger.warning(f'HTTP Error reaching GET /ping (caused by {e!r})', once=True)
+                self._logger.warning(
+                    f'HTTP Error reaching GET /ping (caused by {e!r})', once=True)
             except json.JSONDecodeError as e:
                 # invalid server
-                self._warn_and_raise(f'Error parsing ping response JSON (caused by {e!r})')
+                self._warn_and_raise(
+                    f'Error parsing ping response JSON (caused by {e!r})')
             except Exception as e:
-                self._warn_and_raise(f'Unknown error reaching GET /ping (caused by {e!r})', raise_from=e)
+                self._warn_and_raise(
+                    f'Unknown error reaching GET /ping (caused by {e!r})', raise_from=e)
             else:
-                self._check_version(response.get('version'), name='HTTP server')
+                self._check_version(response.get(
+                    'version'), name='HTTP server')
             self.base_url = base_url
 
         def _get_pot(
