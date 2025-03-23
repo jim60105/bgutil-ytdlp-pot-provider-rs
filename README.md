@@ -45,8 +45,8 @@ docker run --name bgutil-provider -d -p 4416:4416 brainicism/bgutil-ytdlp-pot-pr
 **Native:**
 
 ```shell
-# Replace 0.8.0 with the latest version or the one that matches the plugin
-git clone --single-branch --branch 0.8.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+# Replace 0.8.1 with the latest version or the one that matches the plugin
+git clone --single-branch --branch 0.8.1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
 cd bgutil-ytdlp-pot-provider/server/
 yarn install --frozen-lockfile
 npx tsc
@@ -75,8 +75,8 @@ node build/main.js
 # on each yt-dlp invocation, clone/extract the source code into your home directory.
 # Replace `~` with `%USERPROFILE%` if using Windows
 cd ~
-# Replace 0.8.0 with the latest version or the one that matches the plugin
-git clone --single-branch --branch 0.8.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+# Replace 0.8.1 with the latest version or the one that matches the plugin
+git clone --single-branch --branch 0.8.1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
 cd bgutil-ytdlp-pot-provider/server/
 yarn install --frozen-lockfile
 npx tsc
@@ -143,5 +143,5 @@ If both methods are available for use, the option (b) script will be prioritized
 To check if the plugin was installed correctly, you should see the `bgutil` providers in yt-dlp's verbose output: `yt-dlp -v YOUTUBE_URL`.
 
 ```
-[debug] [GetPOT] PO Token Providers: BgUtilHTTP-0.7.3, BgUtilScript-0.7.3
+[debug] [GetPOT] PO Token Providers: BgUtilHTTP-0.8.1, BgUtilScript-0.8.1
 ```
