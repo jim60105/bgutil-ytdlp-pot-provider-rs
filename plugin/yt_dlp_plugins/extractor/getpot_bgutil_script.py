@@ -103,8 +103,11 @@ else:
             **kwargs,
         ):
             # validate script
-            script_path = self._get_config_setting(
-                'getpot_bgutil_script', default=self._default_script_path)
+            script_path = os.path.expandvars(
+                self._get_config_setting(
+                    'getpot_bgutil_script', default=self._default_script_path,
+                ),
+            )
             self._check_script(script_path)
             self.script_path = script_path
 
