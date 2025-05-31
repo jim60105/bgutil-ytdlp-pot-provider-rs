@@ -30,13 +30,23 @@ const CACHE_PATH = path.resolve(cachedir, "cache.json");
 
 const program = new Command()
     .option("-c, --content-binding <content-binding>")
-    .option("-v, --visitor-data <visitordata>")
-    .option("-d, --data-sync-id <data-sync-id>")
+    .option("-v, --visitor-data <visitordata>") // to be removed in a future version
+    .option("-d, --data-sync-id <data-sync-id>") // to be removed in a future version
     .option("-p, --proxy <proxy-all>")
+    .option("-b, --bypass-cache")
     .option("--version")
-    .option("--verbose");
+    .option("--verbose")
+    .exitOverride();
 
-program.parse();
+try {
+    program.parse();
+} catch (err) {
+    if (err.code === "commander.unknownOption") {
+        console.log();
+        program.outputHelp();
+    }
+}
+
 const options = program.opts();
 
 (async () => {
@@ -44,11 +54,20 @@ const options = program.opts();
         console.log(VERSION);
         process.exit(0);
     }
-    const contentBinding =
-        options.contentBinding || options.dataSyncId || options.visitorData;
-    if (options.dataSyncId)
-        console.warn("Data sync id is deprecated, use -c instead");
+    if (options.dataSyncId) {
+        console.error(
+            "Data sync id is deprecated, use --content-binding instead",
+        );
+        process.exit(1);
+    }
+    if (options.visitorData) {
+        console.error(
+            "Visitor data is deprecated, use --content-binding instead",
+        );
+        process.exit(1);
+    }
 
+    const contentBinding = options.contentBinding;
     const proxy = options.proxy || "";
     const verbose = options.verbose || false;
     const cache: YoutubeSessionDataCaches = {};
@@ -57,14 +76,20 @@ const options = program.opts();
             const parsedCaches = JSON.parse(
                 fs.readFileSync(CACHE_PATH, "utf8"),
             );
-            for (const visitIdentifier in parsedCaches) {
-                const parsedCache = parsedCaches[visitIdentifier];
+            for (const contentBinding in parsedCaches) {
+                const parsedCache = parsedCaches[contentBinding];
                 if (parsedCache) {
-                    cache[visitIdentifier] = {
-                        poToken: parsedCache.poToken,
-                        generatedAt: new Date(parsedCache.generatedAt),
-                        visitIdentifier,
-                    };
+                    const expiresAt = new Date(parsedCache.expiresAt);
+                    if (!isNaN(expiresAt.getTime()))
+                        cache[contentBinding] = {
+                            poToken: parsedCache.poToken,
+                            expiresAt,
+                            contentBinding: contentBinding,
+                        };
+                    else
+                        console.warn(
+                            `Ignored cache entry: invalid expiresAt for content binding '${contentBinding}'.`,
+                        );
                 }
             }
         } catch (e) {
@@ -73,16 +98,12 @@ const options = program.opts();
     }
 
     const sessionManager = new SessionManager(verbose, cache);
-    function log(msg: string) {
-        if (verbose) console.log(msg);
-    }
-
-    log(`Received request for visitor data: '${contentBinding}'`);
 
     try {
         const sessionData = await sessionManager.generatePoToken(
             contentBinding,
             proxy,
+            options.bypassCache || false,
         );
 
         try {

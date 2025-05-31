@@ -8,12 +8,12 @@ import { Innertube } from "youtubei.js";
 
 interface YoutubeSessionData {
     poToken: string;
-    visitIdentifier: string;
-    generatedAt: Date;
+    contentBinding: string;
+    expiresAt: Date;
 }
 
 export interface YoutubeSessionDataCaches {
-    [visitIdentifier: string]: YoutubeSessionData;
+    [contentBinding: string]: YoutubeSessionData;
 }
 
 class Logger {
@@ -62,17 +62,10 @@ export class SessionManager {
     }
 
     cleanupCaches() {
-        for (const visitIdentifier in this.youtubeSessionDataCaches) {
-            const sessionData = this.youtubeSessionDataCaches[visitIdentifier];
-            if (
-                sessionData &&
-                sessionData.generatedAt <
-                    new Date(
-                        new Date().getTime() -
-                            this.TOKEN_TTL_HOURS * 60 * 60 * 1000,
-                    )
-            )
-                delete this.youtubeSessionDataCaches[visitIdentifier];
+        for (const contentBinding in this.youtubeSessionDataCaches) {
+            const sessionData = this.youtubeSessionDataCaches[contentBinding];
+            if (sessionData && new Date() > sessionData.expiresAt)
+                delete this.youtubeSessionDataCaches[contentBinding];
         }
     }
 
@@ -143,6 +136,7 @@ export class SessionManager {
     async generatePoToken(
         contentBinding: string | undefined,
         proxy: string = "",
+        bypassCache = false,
     ): Promise<YoutubeSessionData> {
         if (!contentBinding) {
             this.logger.error(
@@ -158,19 +152,18 @@ export class SessionManager {
             contentBinding = visitorData;
         }
 
-        this.logger.log(`Generating POT for ${contentBinding}`);
         this.cleanupCaches();
-        const sessionData = this.youtubeSessionDataCaches[contentBinding];
-        if (sessionData) {
-            this.logger.log(
-                `POT for ${contentBinding} still fresh, returning cached token`,
-            );
-            return sessionData;
+        if (!bypassCache) {
+            const sessionData = this.youtubeSessionDataCaches[contentBinding];
+            if (sessionData) {
+                this.logger.log(
+                    `POT for ${contentBinding} still fresh, returning cached token`,
+                );
+                return sessionData;
+            }
         }
 
-        this.logger.log(
-            `POT for ${contentBinding} stale or not yet generated, generating...`,
-        );
+        this.logger.log(`Generating POT for ${contentBinding}`);
 
         // hardcoded API key that has been used by youtube for years
         const requestKey = "O43z0dpjhgX20SCx4KAo";
@@ -267,10 +260,12 @@ export class SessionManager {
         }
 
         this.logger.log(`poToken: ${poToken}`);
-        const youtubeSessionData = {
-            visitIdentifier: contentBinding,
+        const youtubeSessionData: YoutubeSessionData = {
+            contentBinding: contentBinding,
             poToken: poToken,
-            generatedAt: new Date(),
+            expiresAt: new Date(
+                new Date().getTime() + this.TOKEN_TTL_HOURS * 60 * 60 * 1000,
+            ),
         };
 
         this.youtubeSessionDataCaches[contentBinding] = youtubeSessionData;
