@@ -91,6 +91,8 @@ npx tsc
 
 #### PyPI:
 
+If yt-dlp is installed through `pip` or `pipx`, you can install the plugin with the following:
+
 ```shell
 python3 -m pip install -U bgutil-ytdlp-pot-provider
 ```
