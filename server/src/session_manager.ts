@@ -1,9 +1,8 @@
-import { BG, BgConfig, DescrambledChallenge } from "bgutils-js";
-import { JSDOM } from "jsdom";
-import { HttpsProxyAgent } from "https-proxy-agent";
 import axios from "axios";
+import { BG, BgConfig, DescrambledChallenge } from "bgutils-js";
 import { Agent } from "https";
-import { SocksProxyAgent } from "https-socks-proxy";
+import { ProxyAgent, ProxyAgentOptions } from "proxy-agent";
+import { JSDOM } from "jsdom";
 import { Innertube } from "youtubei.js";
 interface YoutubeSessionData {
     poToken: string;
@@ -101,52 +100,64 @@ export class SessionManager {
                 rejectUnauthorized: !disableTlsVerification,
             });
         }
-        let protocol: string;
+
+        // Normalize and sanitize the proxy URL
+        let parsed: URL;
+        let loggedProxy = proxy;
+
         try {
-            const parsedUrl = new URL(proxy);
-            protocol = parsedUrl.protocol.replace(":", "");
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (e) {
-            // assume http if no protocol was passed
-            protocol = "http";
+            parsed = new URL(proxy);
+        } catch {
             proxy = `http://${proxy}`;
-        }
-
-        let loggedProxy: string = proxy;
-        try {
-            const parsedUrl = new URL(proxy);
-            if (parsedUrl.password) {
-                loggedProxy = proxy.replace(parsedUrl.password, "****");
+            try {
+                parsed = new URL(proxy);
+            } catch (e) {
+                this.logger.warn(`Invalid proxy URL: ${proxy} (${e})`);
+                return undefined;
             }
-        } catch (e) {
-            this.logger.warn(`Fail to parse proxy url ${proxy}: ${e}`);
-            return undefined;
         }
 
+        if (parsed.password) {
+            parsed.password = "****";
+            loggedProxy = parsed.toString();
+        }
+
+        const protocol = parsed.protocol.replace(":", "");
         switch (protocol) {
             case "http":
             case "https":
                 this.logger.log(`Using HTTP/HTTPS proxy: ${loggedProxy}`);
-                return new HttpsProxyAgent(proxy, {
-                    rejectUnauthorized: !disableTlsVerification,
-                    localAddress: sourceAddress,
-                });
+                break;
             case "socks":
             case "socks4":
             case "socks4a":
             case "socks5":
-            case "socks5h": {
+            case "socks5h":
                 this.logger.log(`Using SOCKS proxy: ${loggedProxy}`);
-                const agent = new SocksProxyAgent(proxy);
-                agent.options.localAddress = sourceAddress;
-                agent.options.rejectUnauthorized = !disableTlsVerification;
-                return agent;
-            }
+                break;
             default:
-                this.logger.warn(`Unsupported proxy protocol: ${loggedProxy}`);
-                return undefined;
+                this.logger.log(`Using proxy: ${loggedProxy}`);
+                break;
+        }
+
+        try {
+            const proxyAgentOptions: ProxyAgentOptions = {
+                getProxyForUrl: () => proxy!,
+                localAddress: sourceAddress,
+                rejectUnauthorized: !disableTlsVerification,
+            };
+
+            const agent = new ProxyAgent(proxyAgentOptions);
+
+            return agent;
+        } catch (e) {
+            this.logger.warn(
+                `Failed to create proxy agent for ${loggedProxy}: ${e}`,
+            );
+            return undefined;
         }
     }
+
     // mostly copied from https://github.com/LuanRT/BgUtils/tree/main/examples/node
     async generatePoToken(
         contentBinding: string | undefined,
