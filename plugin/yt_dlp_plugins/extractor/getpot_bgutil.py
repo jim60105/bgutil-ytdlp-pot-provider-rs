@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 import abc
 import json
@@ -77,7 +77,8 @@ class BgUtilPTPBase(PoTokenProvider, abc.ABC):
         att_txt = traverse_obj(
             raw_challenge_data, ({js_to_json}, {json.loads}, {json.loads}, 'bgChallenge'))
         if not att_txt:
-            self.logger.warning('Failed to extract initial attestation from the webpage')
+            self.logger.warning(
+                'Failed to extract initial attestation from the webpage')
             return None
         return att_txt
 
