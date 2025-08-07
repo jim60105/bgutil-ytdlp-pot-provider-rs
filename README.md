@@ -45,8 +45,8 @@ docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp
 **Native:**
 
 ```shell
-# Replace 1.2.0 with the latest version or the one that matches the plugin
-git clone --single-branch --branch 1.2.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+# Replace 1.2.1 with the latest version or the one that matches the plugin
+git clone --single-branch --branch 1.2.1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
 cd bgutil-ytdlp-pot-provider/server/
 npm install
 npx tsc
@@ -69,8 +69,8 @@ node build/main.js
 # on each yt-dlp invocation, clone/extract the source code into your home directory.
 # Replace `~` with `%USERPROFILE%` if using Windows
 cd ~
-# Replace 1.2.0 with the latest version or the one that matches the plugin
-git clone --single-branch --branch 1.2.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+# Replace 1.2.1 with the latest version or the one that matches the plugin
+git clone --single-branch --branch 1.2.1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
 cd bgutil-ytdlp-pot-provider/server/
 npm install
 npx tsc
@@ -141,5 +141,5 @@ If both methods are available for use, the option (a) HTTP server method will be
 To check if the plugin was installed correctly, you should see the `bgutil` providers in yt-dlp's verbose output: `yt-dlp -v YOUTUBE_URL`.
 
 ```
-[debug] [youtube] [pot] PO Token Providers: bgutil:http-1.2.0 (external), bgutil:script-1.2.0 (external)
+[debug] [youtube] [pot] PO Token Providers: bgutil:http-1.2.1 (external), bgutil:script-1.2.1 (external)
 ```
