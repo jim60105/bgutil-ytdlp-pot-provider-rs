@@ -55,9 +55,15 @@ class ProxySpec {
     public proxyUrl?: URL;
     public sourceAddress?: string;
     public disableTlsVerification: boolean = false;
+    public readonly ipFamily?: number;
     constructor({ sourceAddress, disableTlsVerification }: Partial<ProxySpec>) {
         this.sourceAddress = sourceAddress;
         this.disableTlsVerification = disableTlsVerification || false;
+        if (!this.sourceAddress) {
+            this.ipFamily = undefined;
+        } else {
+            this.ipFamily = this.sourceAddress?.includes(":") ? 6 : 4;
+        }
     }
 
     public get proxy(): string | undefined {
@@ -90,6 +96,7 @@ class ProxySpec {
         if (!proxyUrl) {
             return new Agent({
                 localAddress: sourceAddress,
+                family: this.ipFamily,
                 rejectUnauthorized: !disableTlsVerification,
             });
         }
@@ -106,6 +113,7 @@ class ProxySpec {
             return new ProxyAgent({
                 getProxyForUrl: () => pxyStr,
                 localAddress: sourceAddress,
+                family: this.ipFamily,
                 rejectUnauthorized: !disableTlsVerification,
             });
         } catch (e) {
