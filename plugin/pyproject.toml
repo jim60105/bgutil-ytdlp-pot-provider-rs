@@ -170,3 +170,9 @@ select = [
     "W391",
     "W504",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "autopep8",
+]

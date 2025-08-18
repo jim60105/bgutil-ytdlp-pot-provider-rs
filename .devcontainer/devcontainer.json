@@ -1,22 +1,55 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
 {
-  "name": "Dev Container",
-  "dockerFile": "Dockerfile",
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "lokalise.i18n-ally",
-        "hbenl.vscode-mocha-test-adapter",
-        "chamboug.js-auto-backticks",
-        "ms-azuretools.vscode-docker",
-        "eamodio.gitlens",
-        "github.vscode-pull-request-github",
-        "charliermarsh.ruff"
-      ]
-    }
-  },
-  "remoteUser": "node",
-  "postCreateCommand": "/bin/sh .devcontainer/post_create_command.sh"
+	"name": "Python 3",
+	"image": "mcr.microsoft.com/devcontainers/python:1-3.13",
+	"features": {
+		"ghcr.io/va-h/devcontainers-features/uv:1": {},
+		"ghcr.io/devcontainers/features/rust:1": {
+			"version": "stable"
+		}
+	},
+
+	// Use 'mounts' to make the cargo and uv cache persistent in Docker Volumes.
+	"mounts": [
+		{
+			"source": "devcontainer-cargo-cache-${devcontainerId}",
+			"target": "/usr/local/cargo",
+			"type": "volume"
+		},
+		{
+			"source": "devcontainer-uv-cache-${devcontainerId}",
+			"target": "/.cache/uv",
+			"type": "volume"
+		}
+	],
+
+	"postCreateCommand": {
+		"rustup": "rustup default stable",
+		"uv": "uv sync --frozen"
+	},
+
+	"containerEnv": {
+		"PYTHONUNBUFFERED": "1",
+		"PYTHONDONTWRITEBYTECODE": "1",
+		"UV_SYSTEM_PYTHON": "1",
+		"UV_PROJECT_ENVIRONMENT": "/usr/local",
+		"UV_COMPILE_BYTECODE": "1",
+		"UV_LINK_MODE": "copy"
+	},
+
+	// VS Code extensions to install
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"ms-vscode-remote.remote-containers",
+				"charliermarsh.ruff"
+			],
+			"settings": {
+				"chat.tools.autoApprove": true
+			}
+		}
+	},
+
+	"remoteUser": "root"
 }
