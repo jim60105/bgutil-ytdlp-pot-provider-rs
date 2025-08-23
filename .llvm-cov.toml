@@ -1,0 +1,24 @@
+# cargo llvm-cov 配置檔案
+# 相關文件: https://github.com/taiki-e/cargo-llvm-cov
+
+# 排除的檔案模式
+exclude-from-report = [
+    "benches/*",
+    "tests/*",
+    "src/main.rs",  # 主程式進入點通常不包含在覆蓋率中
+]
+
+# 預設輸出格式
+output-formats = ["html", "lcov"]
+
+# HTML 報告輸出目錄
+output-dir = "target/llvm-cov"
+
+# LCOV 檔案輸出路徑
+lcov-output-path = "target/llvm-cov/lcov.info"
+
+# 是否在報告中包含程式碼
+include-ffi = false
+
+# 當找不到檔案時是否失敗
+ignore-filename-regex = []

@@ -1,32 +1,63 @@
 [package]
 name = "bgutil-ytdlp-pot-provider"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.75"
-authors = ["GitHub Copilot <bot@ChenJ.im>"]
-description = "BgUtils POT Provider - Rust implementation"
-license = "GPL-3.0"
+edition = "2024"
+authors = ["CHEN, CHUN <jim60105@gmail.com>"]
+description = "BgUtils POT Provider - Rust implementation for generating YouTube POT tokens"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs"
 homepage = "https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs"
 documentation = "https://docs.rs/bgutil-ytdlp-pot-provider"
 readme = "README.md"
 keywords = ["yt-dlp", "pot-provider", "youtube", "bgutils"]
-categories = ["command-line-utilities", "web-programming"]
+categories = ["api-bindings", "development-tools", "multimedia", "command-line-utilities"]
+
+exclude = [
+    ".github/",
+    "server/",
+    "plugin/",
+    "scripts/",
+    "docs/",
+    "target/",
+    "*.log",
+    "*.tmp",
+    "**/.DS_Store",
+    "Cargo.lock",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Linting configuration
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_doc_tests = "warn"
+invalid_rust_codeblocks = "warn"
+bare_urls = "warn"
+
+[lints.clippy]
+missing_docs_in_private_items = "allow" # Allow missing private docs
+doc_markdown = "allow"                  # Allow markdown formatting
+
+[lints.rust]
+missing_docs = "allow" # Allow missing docs at rust level
 
 [dependencies]
+# Dependencies
 # HTTP server
 tokio = { version = "1.0", features = ["full"] }
-axum = "0.7"
-tower = "0.4"
+axum = "0.8.4"
+tower = "0.5.2"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-# CLI
-clap = { version = "4.0", features = ["derive"] }
+# CLI framework
+clap = { version = "4.5", features = ["derive", "cargo"] }
 
 # Async HTTP client
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
 
 # Logging
 tracing = "0.1"
@@ -34,15 +65,16 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0.16"
 
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }
 
 # Cross-platform directories
-dirs = "5.0"
+dirs = "6.0"
 
 [dev-dependencies]
+# Testing frameworks and utilities
 tokio-test = "0.4"
 tower-test = "0.4"
 
@@ -56,6 +88,7 @@ strip = true
 [profile.dev]
 opt-level = 0
 debug = true
+split-debuginfo = "unpacked"
 
 [[bin]]
 name = "bgutil-pot-server"

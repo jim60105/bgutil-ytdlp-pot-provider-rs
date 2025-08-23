@@ -28,7 +28,6 @@ cache.json
 
 # Rust
 /target/
-Cargo.lock
 *.rs.bk
 *.pdb
 
@@ -41,3 +40,11 @@ Cargo.lock
 # OS
 .DS_Store
 Thumbs.db
+
+# Environment variables
+.env
+*.log
+
+# JUnit XML test results
+junit.xml
+target/nextest/*/junit.xml
