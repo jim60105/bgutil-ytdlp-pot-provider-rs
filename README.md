@@ -1,5 +1,10 @@
 # BgUtils POT Provider
 
+> [!WARNING]
+> **🚧 Rust Rewrite In Progress 🚧**
+>
+> I am currently rewriting this project from TypeScript to Rust for improved performance and reliability. During this transition period, some features may not work as expected. Please check back later for the stable Rust implementation.
+
 > [!CAUTION]
 > Providing a PO token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
 
