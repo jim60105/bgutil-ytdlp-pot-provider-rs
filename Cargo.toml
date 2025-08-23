@@ -2,7 +2,7 @@
 name = "bgutil-ytdlp-pot-provider"
 version = "0.1.0"
 edition = "2024"
-authors = ["CHEN, CHUN <jim60105@gmail.com>"]
+authors = ["Jim Chen <Jim@ChenJ.im>", "Brian Le <brainicism@gmail.com>"]
 description = "BgUtils POT Provider - Rust implementation for generating YouTube POT tokens"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs"
