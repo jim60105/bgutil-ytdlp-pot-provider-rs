@@ -1,5 +1,4 @@
-* **Project:** BgUtils POT Provider - A proof-of-origin token (POT) provider yt-dlp. We use [LuanRT's Botguard interfacing library](https://github.com/LuanRT/BgUtils) to generate the token.
-This is used to bypass the 'Sign in to confirm you're not a bot' message when invoking yt-dlp from an IP address flagged by YouTube. See _[PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)_ for more details.
+* **Project:** BgUtils POT Provider
 
 * **Role:** Act as a technical expert responsible for both development and code review.
 
@@ -11,7 +10,7 @@ This is used to bypass the 'Sign in to confirm you're not a bot' message when in
   * All code comments and documentation must be written in **English** as per project conventions.
   * Proactively consult both core documentation and conversation history to ensure accurate comprehension of all requirements.
   * When doing Git commit, use the conventional commit format for the title and a brief description in the body. Always commit with `--signoff` and explicitly specify the author on the command: `GitHub Copilot <bot@ChenJ.im>`. Write the commit in English.
-  * The old server code was implemented with typescript under folder `server_ts`. Our job is to rewrite it in Rust.
+  * The old server code was implemented with typescript under folder `server`. Our job is to rewrite it in Rust.
 
 ---
 
@@ -84,13 +83,132 @@ Please use the #github-sudo tool to perform DevOps tasks.
 
 ## Project Overview
 
-TODO
+BgUtils POT Provider is a comprehensive solution for generating Proof-of-Origin (POT) tokens to bypass YouTube's "Sign in to confirm you're not a bot" restrictions when using yt-dlp. The project consists of two main components working in tandem:
+
+### Core Purpose
+
+YouTube has implemented POT token enforcement as a security mechanism to verify that requests originate from legitimate clients. Without these tokens, video downloads may fail with HTTP 403 errors or result in IP/account blocks. This project provides an automated solution using [LuanRT's BgUtils library](https://github.com/LuanRT/BgUtils) to interface with Google's BotGuard system and generate valid POT tokens.
+
+### Architecture Overview
+
+The project follows a dual-component architecture:
+
+1. **POT Provider** (currently TypeScript, being rewritten to Rust):
+   * **HTTP Server Mode**: An always-running REST API service that generates POT tokens on demand
+   * **Script Mode**: A command-line script invoked per yt-dlp request (legacy approach with performance limitations)
+
+2. **yt-dlp Plugin** (Python):
+   * Integrates with yt-dlp's POT provider framework
+   * Automatically fetches POT tokens from the provider
+   * Supports multiple token contexts (GVS, Player, Subs)
+
+### Key Features
+
+* **Seamless Integration**: Works transparently with yt-dlp without requiring manual token extraction
+* **Multiple Operation Modes**: HTTP server (recommended) and script-based execution
+* **Proxy Support**: Full proxy chain support including SOCKS4/5 and HTTP/HTTPS proxies
+* **Session Management**: Intelligent caching and session handling for optimal performance
+* **Cross-Platform**: Supports Linux, Windows, and macOS
+* **Container Ready**: Docker image available for easy deployment
+
+### Technical Foundation
+
+* **BotGuard Integration**: Uses reverse-engineered BotGuard attestation process
+* **Token Types**: Supports cold-start, session-bound, and content-bound tokens
+* **Compliance**: Maintains legitimate client behavior while automating token generation
+* **Performance**: HTTP server mode provides sub-second token generation with caching
+
+### Current State
+
+The project is in active development with a major rewrite from TypeScript to Rust underway. The TypeScript implementation serves as the reference implementation, while the Rust version will provide improved performance, memory safety, and easier deployment.
 
 ## File Organization
 
-TODO
+```text
+bgutil-ytdlp-pot-provider/
+├── .github/                    # GitHub configuration and workflows
+│   ├── copilot-instructions.md # This file - project configuration and guidelines
+│   └── workflows/              # CI/CD pipelines and automation
+├── .devcontainer/              # Development container configuration
+├── docs/                       # Project documentation
+│   ├── REPORT_TEMPLATE.md      # Template for work reports and pull requests
+│   ├── report-guidelines.md    # Guidelines for writing project reports
+│   ├── rustdoc-guidelines.md   # Rust documentation standards
+│   ├── tech-architecture.md    # Technical architecture documentation
+│   └── testing-guidelines.md   # Testing principles and practices
+├── plugin/                     # yt-dlp plugin implementation (Python)
+│   ├── pyproject.toml          # Python project configuration
+│   └── yt_dlp_plugins/         # Plugin source code
+│       └── extractor/          # POT provider extractors
+│           ├── getpot_bgutil.py         # Base POT provider class
+│           ├── getpot_bgutil_http.py    # HTTP server provider
+│           └── getpot_bgutil_script.py  # Script-based provider
+├── scripts/                    # Utility and automation scripts
+│   ├── check_coverage.sh       # Code coverage analysis script
+│   ├── install_plugin_dev.sh   # Development environment setup
+│   └── quality_check.sh        # Code quality validation script
+├── server/                     # TypeScript server implementation (reference)
+│   ├── src/                    # Source code
+│   │   ├── main.ts             # HTTP server entry point
+│   │   ├── generate_once.ts    # Script mode entry point
+│   │   ├── session_manager.ts  # POT token generation logic
+│   │   └── utils.ts            # Utility functions and version info
+│   ├── types/                  # TypeScript type definitions
+│   ├── package.json            # Node.js dependencies and scripts
+│   ├── tsconfig.json           # TypeScript compiler configuration
+│   ├── eslint.config.mjs       # ESLint linting configuration
+│   ├── Dockerfile              # Container image definition
+│   └── README.md               # Server-specific documentation
+├── CODEOWNERS                  # GitHub code ownership configuration
+├── CONTRIBUTING.md             # Contribution guidelines and conventions
+├── LICENSE                     # Project license (GPL-3.0)
+└── README.md                   # Main project documentation and usage guide
+```
 
+### Key Directory Purposes
+
+#### `/plugin/` - yt-dlp Integration Layer
+
+* **Read-only for our team**: This directory contains the Python plugin that integrates with yt-dlp
+* **Purpose**: Provides the interface between yt-dlp and our POT provider
+* **Key Files**:
+  * `getpot_bgutil.py`: Base class with common functionality
+  * `getpot_bgutil_http.py`: HTTP server communication interface
+  * `getpot_bgutil_script.py`: Script execution interface
+
+#### `/server/` - Reference Implementation
+
+* **Current production code**: TypeScript-based POT provider
+* **Status**: Being rewritten to Rust for improved performance
+* **Purpose**: Serves as reference for Rust implementation
+* **Architecture**:
+  * HTTP server mode: Always-running REST API (`main.ts`)
+  * Script mode: Per-request execution (`generate_once.ts`)
+  * Core logic: POT token generation and session management (`session_manager.ts`)
+
+#### `/docs/` - Documentation Hub
+
+* **Technical specifications**: Architecture and implementation details
+* **Development standards**: Code quality, testing, and documentation guidelines
+* **Reporting templates**: Standardized formats for work reports and analysis
+
+#### `/scripts/` - Development Automation
+
+* **Quality assurance**: Automated code quality checks and coverage analysis
+* **Environment setup**: Development environment initialization
+* **CI/CD support**: Scripts used by continuous integration pipelines
+
+#### Future Rust Implementation
+
+When the Rust rewrite is completed, the project structure will include:
+
+* `/src/` - Rust source code directory
+* `/Cargo.toml` - Rust project configuration
+* `/target/` - Compiled artifacts (gitignored)
+
+> [!NOTE]  
 > The `plugin` folder contains the yt-dlp plugin, implemented in Python. It cannot be run independently and should be treated as read-only, as we will not modify it under any circumstances.
+> The `server` folder contains the TypeScript server implementation, it should be treated as read-only, as we will not modify it under any circumstances.
 
 ---
 
