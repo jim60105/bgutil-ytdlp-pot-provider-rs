@@ -7,7 +7,7 @@ use crate::{
     types::{ErrorResponse, PingResponse, PotRequest},
     utils::version,
 };
-use axum::{extract::State, http::StatusCode, response::Json, Json as RequestJson};
+use axum::{Json as RequestJson, extract::State, http::StatusCode, response::Json};
 
 /// Generate POT token endpoint
 ///

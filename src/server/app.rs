@@ -4,8 +4,8 @@
 
 use crate::{config::Settings, session::SessionManager};
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
 use std::sync::Arc;
 use tower::ServiceBuilder;

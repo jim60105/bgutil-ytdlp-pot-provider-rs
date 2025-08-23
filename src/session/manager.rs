@@ -3,9 +3,9 @@
 //! Core session management and POT token generation functionality.
 
 use crate::{
+    Result,
     config::Settings,
     types::{PotRequest, PotResponse},
-    Result,
 };
 use chrono::{DateTime, Duration, Utc};
 use std::collections::HashMap;
