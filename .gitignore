@@ -25,3 +25,26 @@ yt-dlp/
 
 /tmp/
 cache.json
+
+# Rust
+/target/
+*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+*.log
+
+# JUnit XML test results
+junit.xml
+target/nextest/*/junit.xml
