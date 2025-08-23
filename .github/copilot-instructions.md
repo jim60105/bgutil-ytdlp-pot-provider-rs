@@ -22,7 +22,7 @@ Please use the #github-sudo tool to perform DevOps tasks.
 
 ***Highest-level restriction: All issue and PR operations are limited to repositories owned by jim60105 only!***
 
-* **GitHub repo**: https://github.com/jim60105/bgutil-ytdlp-pot-provider
+* **GitHub repo**: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs
 
 * **Backlog & Bugs**: All backlogs and bugs must be managed on GitHub Issues.
 
@@ -125,7 +125,7 @@ The project is in active development with a major rewrite from TypeScript to Rus
 ## File Organization
 
 ```text
-bgutil-ytdlp-pot-provider/
+bgutil-ytdlp-pot-provider-rs/
 ├── .github/                    # GitHub configuration and workflows
 │   ├── copilot-instructions.md # This file - project configuration and guidelines
 │   └── workflows/              # CI/CD pipelines and automation
