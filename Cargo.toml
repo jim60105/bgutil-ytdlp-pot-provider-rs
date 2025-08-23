@@ -1,0 +1,66 @@
+[package]
+name = "bgutil-ytdlp-pot-provider"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["GitHub Copilot <bot@ChenJ.im>"]
+description = "BgUtils POT Provider - Rust implementation"
+license = "GPL-3.0"
+repository = "https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs"
+homepage = "https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs"
+documentation = "https://docs.rs/bgutil-ytdlp-pot-provider"
+readme = "README.md"
+keywords = ["yt-dlp", "pot-provider", "youtube", "bgutils"]
+categories = ["command-line-utilities", "web-programming"]
+
+[dependencies]
+# HTTP server
+tokio = { version = "1.0", features = ["full"] }
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+
+# Async HTTP client
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Cross-platform directories
+dirs = "5.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tower-test = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[[bin]]
+name = "bgutil-pot-server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "bgutil-pot-generate"
+path = "src/bin/generate.rs"
