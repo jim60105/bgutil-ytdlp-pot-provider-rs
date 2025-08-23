@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Extract changelog content
+      id: extract_changelog
+      run: |
+        # Extract the latest version's changelog content
+        VERSION="${{ github.ref_name }}"
+        # Remove 'v' prefix if present
+        VERSION_NUM="${VERSION#v}"
+        
+        # Find the section for this version and extract content until next version or end
+        awk "/^## \[$VERSION_NUM\]/{flag=1; next} /^## \[/{if(flag) exit} flag" CHANGELOG.md > release_notes.md
+        
+        # If no specific version found, use a default message
+        if [ ! -s release_notes.md ]; then
+          echo "Release $VERSION" > release_notes.md
+        fi
+    
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        body_path: release_notes.md
+
+  build:
+    name: Build and Upload
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+          binary_name: bgutil-ytdlp-pot-provider-rs
+          asset_name: bgutil-ytdlp-pot-provider-rs-linux-x86_64
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+          binary_name: bgutil-ytdlp-pot-provider-rs.exe
+          asset_name: bgutil-ytdlp-pot-provider-rs-windows-x86_64.exe
+        - os: macos-latest
+          target: x86_64-apple-darwin
+          binary_name: bgutil-ytdlp-pot-provider-rs
+          asset_name: bgutil-ytdlp-pot-provider-rs-macos-x86_64
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          binary_name: bgutil-ytdlp-pot-provider-rs
+          asset_name: bgutil-ytdlp-pot-provider-rs-macos-aarch64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Build
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Package
+      shell: bash
+      run: |
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} ${{ matrix.asset_name }}
+        else
+          cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} ${{ matrix.asset_name }}
+          chmod +x ${{ matrix.asset_name }}
+        fi
+
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ matrix.asset_name }}
+
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    - name: Publish to crates.io
+      run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
