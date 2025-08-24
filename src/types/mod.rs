@@ -2,8 +2,10 @@
 //!
 //! This module contains the main data structures used for requests and responses.
 
+pub mod internal;
 pub mod request;
 pub mod response;
 
-pub use request::PotRequest;
-pub use response::{ErrorResponse, PingResponse, PotResponse};
+pub use internal::*;
+pub use request::{InvalidateRequest, InvalidationType, PotRequest};
+pub use response::{ErrorResponse, MinterCacheResponse, PingResponse, PotResponse};

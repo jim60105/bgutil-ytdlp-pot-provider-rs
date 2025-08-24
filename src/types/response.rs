@@ -82,6 +82,42 @@ impl ErrorResponse {
     }
 }
 
+/// Minter cache keys response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinterCacheResponse {
+    /// List of cache keys
+    pub cache_keys: Vec<String>,
+}
+
+impl MinterCacheResponse {
+    /// Create a new minter cache response
+    pub fn new(cache_keys: Vec<String>) -> Self {
+        Self { cache_keys }
+    }
+
+    /// Create an empty minter cache response
+    pub fn empty() -> Self {
+        Self {
+            cache_keys: Vec::new(),
+        }
+    }
+
+    /// Add a cache key
+    pub fn add_key(&mut self, key: impl Into<String>) {
+        self.cache_keys.push(key.into());
+    }
+
+    /// Get the number of cache keys
+    pub fn len(&self) -> usize {
+        self.cache_keys.len()
+    }
+
+    /// Check if the cache keys list is empty
+    pub fn is_empty(&self) -> bool {
+        self.cache_keys.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +171,38 @@ mod tests {
     fn test_error_response() {
         let response = ErrorResponse::new("Test error");
         assert_eq!(response.error, "Test error");
+    }
+
+    #[test]
+    fn test_minter_cache_response() {
+        let mut response = MinterCacheResponse::empty();
+        assert!(response.is_empty());
+        assert_eq!(response.len(), 0);
+
+        response.add_key("cache_key_1");
+        response.add_key("cache_key_2");
+
+        assert!(!response.is_empty());
+        assert_eq!(response.len(), 2);
+        assert_eq!(response.cache_keys, vec!["cache_key_1", "cache_key_2"]);
+    }
+
+    #[test]
+    fn test_minter_cache_response_new() {
+        let keys = vec!["key1".to_string(), "key2".to_string(), "key3".to_string()];
+        let response = MinterCacheResponse::new(keys.clone());
+
+        assert_eq!(response.cache_keys, keys);
+        assert_eq!(response.len(), 3);
+    }
+
+    #[test]
+    fn test_minter_cache_response_serialization() {
+        let response = MinterCacheResponse::new(vec!["test_key".to_string()]);
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("cache_keys"));
+
+        let deserialized: MinterCacheResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.cache_keys, vec!["test_key"]);
     }
 }

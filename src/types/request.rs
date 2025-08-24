@@ -32,6 +32,40 @@ pub struct PotRequest {
     pub source_address: Option<String>,
 }
 
+/// Challenge invalidation request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvalidateRequest {
+    /// Type of invalidation
+    pub invalidate_type: InvalidationType,
+}
+
+impl InvalidateRequest {
+    /// Create a new invalidate request
+    pub fn new(invalidate_type: InvalidationType) -> Self {
+        Self { invalidate_type }
+    }
+
+    /// Create a cache invalidation request
+    pub fn caches() -> Self {
+        Self::new(InvalidationType::Caches)
+    }
+
+    /// Create an integrity token invalidation request
+    pub fn integrity_token() -> Self {
+        Self::new(InvalidationType::IntegrityToken)
+    }
+}
+
+/// Type of invalidation operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum InvalidationType {
+    /// Invalidate cached tokens
+    Caches,
+    /// Invalidate integrity token
+    #[serde(rename = "IT")]
+    IntegrityToken,
+}
+
 impl Default for PotRequest {
     fn default() -> Self {
         Self {
@@ -70,6 +104,36 @@ impl PotRequest {
         self.bypass_cache = Some(bypass_cache);
         self
     }
+
+    /// Set source address
+    pub fn with_source_address(mut self, source_address: impl Into<String>) -> Self {
+        self.source_address = Some(source_address.into());
+        self
+    }
+
+    /// Set TLS verification flag
+    pub fn with_disable_tls_verification(mut self, disable: bool) -> Self {
+        self.disable_tls_verification = Some(disable);
+        self
+    }
+
+    /// Set challenge data
+    pub fn with_challenge(mut self, challenge: impl Into<String>) -> Self {
+        self.challenge = Some(challenge.into());
+        self
+    }
+
+    /// Set disable Innertube flag
+    pub fn with_disable_innertube(mut self, disable: bool) -> Self {
+        self.disable_innertube = Some(disable);
+        self
+    }
+
+    /// Set Innertube context
+    pub fn with_innertube_context(mut self, context: serde_json::Value) -> Self {
+        self.innertube_context = Some(context);
+        self
+    }
 }
 
 #[cfg(test)]
@@ -89,11 +153,19 @@ mod tests {
         let request = PotRequest::new()
             .with_content_binding("test_video_id")
             .with_proxy("http://proxy:8080")
-            .with_bypass_cache(true);
+            .with_bypass_cache(true)
+            .with_source_address("192.168.1.1")
+            .with_disable_tls_verification(true)
+            .with_challenge("test_challenge")
+            .with_disable_innertube(true);
 
         assert_eq!(request.content_binding, Some("test_video_id".to_string()));
         assert_eq!(request.proxy, Some("http://proxy:8080".to_string()));
         assert_eq!(request.bypass_cache, Some(true));
+        assert_eq!(request.source_address, Some("192.168.1.1".to_string()));
+        assert_eq!(request.disable_tls_verification, Some(true));
+        assert_eq!(request.challenge, Some("test_challenge".to_string()));
+        assert_eq!(request.disable_innertube, Some(true));
     }
 
     #[test]
@@ -104,5 +176,43 @@ mod tests {
 
         let deserialized: PotRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.content_binding, Some("test".to_string()));
+    }
+
+    #[test]
+    fn test_invalidate_request_creation() {
+        let cache_request = InvalidateRequest::caches();
+        assert!(matches!(
+            cache_request.invalidate_type,
+            InvalidationType::Caches
+        ));
+
+        let it_request = InvalidateRequest::integrity_token();
+        assert!(matches!(
+            it_request.invalidate_type,
+            InvalidationType::IntegrityToken
+        ));
+    }
+
+    #[test]
+    fn test_invalidate_request_serialization() {
+        let request = InvalidateRequest::caches();
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: InvalidateRequest = serde_json::from_str(&json).unwrap();
+
+        assert!(matches!(
+            deserialized.invalidate_type,
+            InvalidationType::Caches
+        ));
+    }
+
+    #[test]
+    fn test_invalidation_type_serialization() {
+        let caches = InvalidationType::Caches;
+        let json = serde_json::to_string(&caches).unwrap();
+        assert_eq!(json, "\"Caches\"");
+
+        let it = InvalidationType::IntegrityToken;
+        let json = serde_json::to_string(&it).unwrap();
+        assert_eq!(json, "\"IT\"");
     }
 }

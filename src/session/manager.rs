@@ -51,12 +51,11 @@ impl SessionManager {
             .unwrap_or_else(|| "default".to_string());
 
         // Check cache first unless bypass_cache is true
-        if !request.bypass_cache.unwrap_or(false) {
-            if let Some(cached_token) = self.get_cached_token(&content_binding).await {
-                if !cached_token.is_expired() {
-                    return Ok(cached_token);
-                }
-            }
+        if !request.bypass_cache.unwrap_or(false)
+            && let Some(cached_token) = self.get_cached_token(&content_binding).await
+            && !cached_token.is_expired()
+        {
+            return Ok(cached_token);
         }
 
         // Generate new token (placeholder implementation)
