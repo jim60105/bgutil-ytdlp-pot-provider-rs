@@ -73,10 +73,19 @@ chrono = { version = "0.4", features = ["serde"] }
 # Cross-platform directories
 dirs = "6.0"
 
+# JavaScript engine for BotGuard integration
+deno_core = "0.240"
+
+# Base64 encoding/decoding
+base64 = "0.21"
+
 [dev-dependencies]
 # Testing frameworks and utilities
 tokio-test = "0.4"
 tower-test = "0.4"
+
+# HTTP mocking for testing
+mockito = "1.7"
 
 [profile.release]
 opt-level = 3
