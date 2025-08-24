@@ -257,6 +257,19 @@ struct VmFunctions {
     check_camera_function: String,
 }
 
+/// Arguments for BotGuard snapshot generation
+#[derive(Debug)]
+pub struct SnapshotArgs<'a> {
+    /// Content binding for the snapshot
+    pub content_binding: Option<&'a str>,
+    /// Signed timestamp
+    pub signed_timestamp: Option<i64>,
+    /// WebPO signal output (mutable reference to populate)
+    pub webpo_signal_output: Option<&'a mut Vec<String>>,
+    /// Skip privacy buffer flag
+    pub skip_privacy_buffer: Option<bool>,
+}
+
 impl BotGuardClient {
     /// Create new BotGuard client with JavaScript runtime
     pub async fn new(
@@ -292,6 +305,13 @@ impl BotGuardClient {
         });
 
         Ok(runtime)
+    }
+
+    /// Get a runtime handle for WebPoMinter integration
+    pub fn get_runtime_handle(&self) -> crate::session::webpo_minter::JsRuntimeHandle {
+        // For now, create a placeholder handle
+        // TODO: Integrate with actual runtime when ready
+        crate::session::webpo_minter::JsRuntimeHandle::new_for_test()
     }
 
     /// Load the BotGuard program and initialize VM
@@ -357,6 +377,56 @@ impl BotGuardClient {
             .map_err(|e| {
                 crate::Error::botguard(format!("Failed to generate BotGuard response: {}", e))
             })?;
+
+        // Convert the result to string (simplified)
+        let response = format!("{:?}", result);
+        Ok(response)
+    }
+
+    /// Generate BotGuard snapshot with optional parameters for WebPO integration
+    /// This method supports the WebPoMinter workflow
+    pub async fn snapshot(&mut self, args: SnapshotArgs<'_>) -> Result<String> {
+        if self.vm_functions.is_none() {
+            return Err(crate::Error::botguard(
+                "VM not initialized. Call load_program() first.".to_string(),
+            ));
+        }
+
+        // Prepare snapshot parameters
+        let content_binding = args.content_binding.unwrap_or("");
+        let signed_timestamp = args.signed_timestamp.unwrap_or(0);
+        let skip_privacy_buffer = args.skip_privacy_buffer.unwrap_or(false);
+
+        // Generate snapshot with parameters
+        let snapshot_script = format!(
+            r#"
+            const snapshotArgs = {{
+                contentBinding: "{}",
+                signedTimestamp: {},
+                skipPrivacyBuffer: {}
+            }};
+            globalThis.syncSnapshot(snapshotArgs);
+            "#,
+            content_binding, signed_timestamp, skip_privacy_buffer
+        );
+
+        let result = self
+            .runtime
+            .execute_script(
+                "botguard_snapshot_with_args.js",
+                FastString::from(snapshot_script),
+            )
+            .map_err(|e| {
+                crate::Error::botguard(format!("Failed to generate BotGuard snapshot: {}", e))
+            })?;
+
+        // TODO: Extract webPoSignalOutput from the result if provided
+        if let Some(webpo_output) = args.webpo_signal_output {
+            // For now, we'll populate with placeholder functions
+            // In real implementation, these would come from the JavaScript VM
+            webpo_output.clear();
+            webpo_output.push("globalThis.webPoMinter".to_string());
+        }
 
         // Convert the result to string (simplified)
         let response = format!("{:?}", result);
@@ -728,6 +798,54 @@ mod tests {
         // Now should work
         let result = client.generate_response().await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_botguard_snapshot_with_args() {
+        let interpreter_js = r#"
+            globalThis.testBG = {
+                a: function(program, vmFunctionsCallback, flag1, flag2, noop, arrays) {
+                    vmFunctionsCallback(null, null, null, null);
+                    return [function(args) { return "snapshot_with_args: " + JSON.stringify(args); }];
+                }
+            };
+        "#;
+
+        let mut client = BotGuardClient::new(interpreter_js, "test_program", "testBG")
+            .await
+            .unwrap();
+
+        client.load_program().await.unwrap();
+
+        let mut webpo_output = Vec::new();
+        let snapshot_args = SnapshotArgs {
+            content_binding: Some("test_video_id"),
+            signed_timestamp: Some(1234567890),
+            webpo_signal_output: Some(&mut webpo_output),
+            skip_privacy_buffer: Some(false),
+        };
+
+        let result = client.snapshot(snapshot_args).await;
+        assert!(result.is_ok());
+
+        // Check that webpo_signal_output was populated
+        assert!(!webpo_output.is_empty());
+        assert_eq!(webpo_output[0], "globalThis.webPoMinter");
+    }
+
+    #[test]
+    fn test_botguard_client_get_runtime_handle() {
+        let interpreter_js = "// test script";
+        let client = BotGuardClient::new(interpreter_js, "test_program", "testBG");
+
+        // This should compile and create a runtime handle
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let client = client.await.unwrap();
+            let handle = client.get_runtime_handle();
+
+            // The handle should be in test mode for now
+            assert!(format!("{:?}", handle).contains("_test_mode"));
+        });
     }
 
     // Integrity Token Tests

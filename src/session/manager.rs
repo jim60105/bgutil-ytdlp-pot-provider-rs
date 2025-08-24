@@ -272,14 +272,27 @@ impl SessionManager {
 
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 
+        // Create placeholder WebPoMinter for now
+        let placeholder_minter = self.create_placeholder_webpo_minter();
+
         Ok(TokenMinterEntry::new(
             expires_at,
             "placeholder_integrity_token",
             3600,
             300,
             None,
-            "placeholder_minter",
+            placeholder_minter,
         ))
+    }
+
+    /// Create a placeholder WebPoMinter for testing
+    fn create_placeholder_webpo_minter(&self) -> crate::session::WebPoMinter {
+        use crate::session::webpo_minter::JsRuntimeHandle;
+
+        crate::session::WebPoMinter {
+            mint_callback_ref: "placeholder_callback".to_string(),
+            runtime_handle: JsRuntimeHandle::new_for_test(),
+        }
     }
 
     /// Mint POT token using the token minter
@@ -288,14 +301,16 @@ impl SessionManager {
     async fn mint_pot_token(
         &self,
         content_binding: &str,
-        _token_minter: &TokenMinterEntry,
+        token_minter: &TokenMinterEntry,
     ) -> Result<SessionData> {
         tracing::info!("Generating POT for {}", content_binding);
 
-        // TODO: Implement actual POT token minting
-        // This should use the WebPoMinter to mint a token for the content binding
+        // Use the WebPoMinter to mint a token for the content binding
+        let po_token = token_minter
+            .minter
+            .mint_websafe_string(content_binding)
+            .await?;
 
-        let po_token = format!("placeholder_pot_token_{}", content_binding);
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 
         tracing::info!("Generated POT token: {}", po_token);
