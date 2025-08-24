@@ -58,7 +58,10 @@ async fn main() -> anyhow::Result<()> {
             settings
         }
         Err(e) => {
-            tracing::warn!("Failed to load settings from environment: {}. Using defaults.", e);
+            tracing::warn!(
+                "Failed to load settings from environment: {}. Using defaults.",
+                e
+            );
             let mut settings = bgutil_ytdlp_pot_provider::Settings::default();
             settings.server.host = cli.host.clone();
             settings.server.port = cli.port;
@@ -66,7 +69,10 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    tracing::info!("Starting POT server v{}", bgutil_ytdlp_pot_provider::utils::version::get_version());
+    tracing::info!(
+        "Starting POT server v{}",
+        bgutil_ytdlp_pot_provider::utils::version::get_version()
+    );
 
     // Create the Axum application
     let app = bgutil_ytdlp_pot_provider::server::app::create_app(settings.clone());
@@ -88,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Parse host string and attempt to bind to the address
-/// 
+///
 /// Implements the same IPv6 fallback logic as TypeScript implementation:
 /// - First try to bind to IPv6 (::)
 /// - If that fails, fall back to IPv4 (0.0.0.0)
@@ -115,7 +121,11 @@ async fn parse_and_bind_address(host: &str, port: u16) -> anyhow::Result<std::ne
                     Ok(addr)
                 }
                 Err(e) => {
-                    tracing::warn!("Could not listen on [::]:{} (Caused by {}), falling back to 0.0.0.0", port, e);
+                    tracing::warn!(
+                        "Could not listen on [::]:{} (Caused by {}), falling back to 0.0.0.0",
+                        port,
+                        e
+                    );
                     let fallback_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
                     tracing::info!("Using IPv4 fallback address: {}", fallback_addr);
                     Ok(fallback_addr)
@@ -128,7 +138,10 @@ async fn parse_and_bind_address(host: &str, port: u16) -> anyhow::Result<std::ne
             Ok(addr)
         }
         _ => {
-            anyhow::bail!("Invalid host address: {}. Use '::' for IPv6 or '0.0.0.0' for IPv4", host);
+            anyhow::bail!(
+                "Invalid host address: {}. Use '::' for IPv6 or '0.0.0.0' for IPv4",
+                host
+            );
         }
     }
 }

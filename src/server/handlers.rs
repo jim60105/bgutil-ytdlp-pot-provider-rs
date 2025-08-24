@@ -44,20 +44,20 @@ pub async fn generate_pot(
 }
 
 /// Validate deprecated fields in the request
-/// 
+///
 /// Checks for deprecated data_sync_id and visitor_data fields
 fn validate_deprecated_fields(_request: &PotRequest) -> Result<(), ErrorResponse> {
     // Note: Since we're using a structured PotRequest, we need to check if the raw JSON
     // would contain these deprecated fields. For now, we'll implement this check in a simple way.
     // In a full implementation, this would require custom deserialization or middleware.
-    
+
     // For now, return Ok since the structured request doesn't contain these fields
     // TODO: Implement proper JSON field validation for deprecated fields
     Ok(())
 }
 
 /// Format error for HTTP response
-/// 
+///
 /// Corresponds to TypeScript `strerror` function in `utils.ts`
 fn format_error(error: &crate::Error) -> String {
     match error {
@@ -72,7 +72,9 @@ fn format_error(error: &crate::Error) -> String {
         crate::Error::DateParse(e) => format!("Date parsing error: {}", e),
         crate::Error::Cache { operation } => format!("Cache operation failed: {}", operation),
         crate::Error::Config(msg) => format!("Configuration error: {}", msg),
-        crate::Error::VisitorData { reason } => format!("Visitor data generation failed: {}", reason),
+        crate::Error::VisitorData { reason } => {
+            format!("Visitor data generation failed: {}", reason)
+        }
         crate::Error::Internal(msg) => format!("Internal error: {}", msg),
         crate::Error::Session(msg) => format!("Session error: {}", msg),
         crate::Error::Server(msg) => format!("Server error: {}", msg),
