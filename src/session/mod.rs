@@ -8,8 +8,10 @@ pub mod botguard;
 pub mod innertube;
 pub mod manager;
 pub mod network;
+pub mod webpo_minter;
 
 pub use botguard::BotGuardManager;
 pub use innertube::InnertubeClient;
 pub use manager::SessionManager;
 pub use network::{NetworkManager, ProxySpec, RequestOptions};
+pub use webpo_minter::{JsRuntimeHandle, WebPoMinter};

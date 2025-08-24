@@ -5,6 +5,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// Import WebPoMinter
+use crate::session::WebPoMinter;
+
 /// YouTube session data for caching
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionData {
@@ -136,8 +139,8 @@ pub struct TokenMinterEntry {
     pub mint_refresh_threshold: u32,
     /// Websafe fallback token
     pub websafe_fallback_token: Option<String>,
-    /// Associated POT minter (placeholder for now)
-    pub minter: String, // TODO: Replace with actual WebPoMinter
+    /// Associated POT minter
+    pub minter: WebPoMinter,
 }
 
 /// Token minter information (legacy compatibility)
@@ -159,7 +162,7 @@ impl TokenMinterEntry {
         estimated_ttl_secs: u32,
         mint_refresh_threshold: u32,
         websafe_fallback_token: Option<String>,
-        minter: impl Into<String>,
+        minter: WebPoMinter,
     ) -> Self {
         Self {
             expiry,
@@ -167,7 +170,7 @@ impl TokenMinterEntry {
             estimated_ttl_secs,
             mint_refresh_threshold,
             websafe_fallback_token,
-            minter: minter.into(),
+            minter,
         }
     }
 
@@ -317,13 +320,14 @@ mod tests {
     #[test]
     fn test_token_minter_entry_creation() {
         let future_time = Utc::now() + Duration::hours(1);
+        let test_minter = create_test_webpo_minter();
         let minter = TokenMinterEntry::new(
             future_time,
             "integrity_token_123",
             3600,
             300,
             Some("websafe_token".to_string()),
-            "minter_instance",
+            test_minter,
         );
 
         assert_eq!(minter.integrity_token, "integrity_token_123");
@@ -341,13 +345,25 @@ mod tests {
         let past_time = Utc::now() - Duration::hours(1);
         let future_time = Utc::now() + Duration::hours(1);
 
-        let expired_minter = TokenMinterEntry::new(past_time, "token", 3600, 300, None, "minter");
+        let test_minter1 = create_test_webpo_minter();
+        let expired_minter = TokenMinterEntry::new(past_time, "token", 3600, 300, None, test_minter1);
 
-        let valid_minter = TokenMinterEntry::new(future_time, "token", 3600, 300, None, "minter");
+        let test_minter2 = create_test_webpo_minter();
+        let valid_minter = TokenMinterEntry::new(future_time, "token", 3600, 300, None, test_minter2);
 
         assert!(expired_minter.is_expired());
         assert!(!valid_minter.is_expired());
         assert!(valid_minter.time_until_expiry().num_seconds() > 0);
+    }
+
+    /// Helper function to create a test WebPoMinter
+    fn create_test_webpo_minter() -> WebPoMinter {
+        use crate::session::webpo_minter::JsRuntimeHandle;
+        
+        WebPoMinter {
+            mint_callback_ref: "test_callback".to_string(),
+            runtime_handle: JsRuntimeHandle::new_for_test(),
+        }
     }
 
     #[test]
