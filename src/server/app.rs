@@ -39,6 +39,7 @@ pub fn create_app(settings: Settings) -> Router {
             "/invalidate_caches",
             post(super::handlers::invalidate_caches),
         )
+        .route("/invalidate_it", post(super::handlers::invalidate_it))
         .route("/minter_cache", get(super::handlers::minter_cache))
         .layer(
             ServiceBuilder::new()
