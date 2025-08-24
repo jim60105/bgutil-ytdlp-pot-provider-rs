@@ -83,6 +83,9 @@ base64 = "0.21"
 # Testing frameworks and utilities
 tokio-test = "0.4"
 tower-test = "0.4"
+tempfile = "3.0"
+assert_cmd = "2.0"
+predicates = "3.0"
 
 # HTTP mocking for testing
 mockito = "1.7"

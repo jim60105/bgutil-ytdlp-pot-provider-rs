@@ -2,9 +2,12 @@
 //!
 //! Provides version information for the application.
 
+/// Application version from Cargo.toml
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Get the current application version
 pub fn get_version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
+    VERSION
 }
 
 /// Get detailed version information including git commit

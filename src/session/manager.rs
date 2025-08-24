@@ -147,6 +147,27 @@ impl SessionManager {
         Ok(cache.keys().cloned().collect())
     }
 
+    /// Set session data caches (for script mode with file cache)
+    ///
+    /// Corresponds to TypeScript: `setYoutubeSessionDataCaches` method
+    pub async fn set_session_data_caches(&self, caches: SessionDataCaches) {
+        let mut cache = self.session_data_caches.write().await;
+        *cache = caches;
+        tracing::debug!("Set session data caches with {} entries", cache.len());
+    }
+
+    /// Get session data caches with optional cleanup
+    ///
+    /// Corresponds to TypeScript: `getYoutubeSessionDataCaches` method (L216-220)
+    pub async fn get_session_data_caches(&self, cleanup: bool) -> SessionDataCaches {
+        if cleanup {
+            self.cleanup_caches().await;
+        }
+
+        let cache = self.session_data_caches.read().await;
+        cache.clone()
+    }
+
     // Private helper methods...
 
     /// Get content binding from request or generate visitor data
