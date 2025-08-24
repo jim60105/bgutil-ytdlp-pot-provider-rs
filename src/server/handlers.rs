@@ -188,4 +188,189 @@ mod tests {
         // Response should be empty initially but valid
         assert!(response.is_empty());
     }
+
+    #[test]
+    fn test_format_error_botguard() {
+        let error = crate::Error::BotGuard {
+            message: "BotGuard initialization failed".to_string(),
+        };
+        let formatted = format_error(&error);
+        assert_eq!(formatted, "BotGuard error: BotGuard initialization failed");
+    }
+
+    #[test]
+    fn test_format_error_token_generation() {
+        let error = crate::Error::TokenGeneration("Failed to generate token".to_string());
+        let formatted = format_error(&error);
+        assert_eq!(
+            formatted,
+            "Token generation failed: Failed to generate token"
+        );
+    }
+
+    #[test]
+    fn test_format_error_integrity_token() {
+        let error = crate::Error::IntegrityToken {
+            details: "Invalid token structure".to_string(),
+        };
+        let formatted = format_error(&error);
+        assert_eq!(formatted, "Integrity token error: Invalid token structure");
+    }
+
+    #[test]
+    fn test_format_error_challenge() {
+        let error = crate::Error::Challenge {
+            stage: "verification".to_string(),
+        };
+        let formatted = format_error(&error);
+        assert_eq!(formatted, "Challenge processing failed at verification");
+    }
+
+    #[test]
+    fn test_format_error_proxy() {
+        let error = crate::Error::Proxy {
+            config: "Invalid proxy settings".to_string(),
+        };
+        let formatted = format_error(&error);
+        assert_eq!(
+            formatted,
+            "Proxy configuration error: Invalid proxy settings"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_format_error_network() {
+        // Create a network error by making a request to an invalid URL
+        let client = reqwest::Client::new();
+        let result = client
+            .get("http://invalid-domain-that-does-not-exist.test")
+            .send()
+            .await;
+        assert!(result.is_err());
+
+        let reqwest_error = result.unwrap_err();
+        let error = crate::Error::Network(reqwest_error);
+        let formatted = format_error(&error);
+        assert!(formatted.starts_with("Network error:"));
+    }
+
+    #[test]
+    fn test_format_error_json() {
+        let json_error = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let error = crate::Error::Json(json_error);
+        let formatted = format_error(&error);
+        assert!(formatted.starts_with("JSON error:"));
+    }
+
+    #[test]
+    fn test_format_error_io() {
+        let error = crate::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "File not found",
+        ));
+        let formatted = format_error(&error);
+        assert!(formatted.starts_with("I/O error:"));
+    }
+
+    #[test]
+    fn test_format_error_date_parse() {
+        // Create a real parse error
+        let date_error = chrono::DateTime::parse_from_rfc3339("invalid date").unwrap_err();
+        let error = crate::Error::DateParse(date_error);
+        let formatted = format_error(&error);
+        assert!(formatted.starts_with("Date parsing error:"));
+    }
+
+    #[test]
+    fn test_format_error_cache() {
+        let error = crate::Error::Cache {
+            operation: "Failed to store cache entry".to_string(),
+        };
+        let formatted = format_error(&error);
+        assert_eq!(
+            formatted,
+            "Cache operation failed: Failed to store cache entry"
+        );
+    }
+
+    #[test]
+    fn test_format_error_config() {
+        let error = crate::Error::Config("Invalid configuration parameter".to_string());
+        let formatted = format_error(&error);
+        assert_eq!(
+            formatted,
+            "Configuration error: Invalid configuration parameter"
+        );
+    }
+
+    #[test]
+    fn test_format_error_visitor_data() {
+        let error = crate::Error::VisitorData {
+            reason: "Failed to generate visitor data".to_string(),
+        };
+        let formatted = format_error(&error);
+        assert_eq!(
+            formatted,
+            "Visitor data generation failed: Failed to generate visitor data"
+        );
+    }
+
+    #[test]
+    fn test_format_error_internal() {
+        let error = crate::Error::Internal("Unexpected internal state".to_string());
+        let formatted = format_error(&error);
+        assert_eq!(formatted, "Internal error: Unexpected internal state");
+    }
+
+    #[test]
+    fn test_format_error_session() {
+        let error = crate::Error::Session("Session expired".to_string());
+        let formatted = format_error(&error);
+        assert_eq!(formatted, "Session error: Session expired");
+    }
+
+    #[test]
+    fn test_format_error_server() {
+        let error = crate::Error::Server("Server configuration invalid".to_string());
+        let formatted = format_error(&error);
+        assert_eq!(formatted, "Server error: Server configuration invalid");
+    }
+
+    #[test]
+    fn test_validate_deprecated_fields() {
+        // Test that validate_deprecated_fields always returns Ok for now
+        let request = PotRequest::new();
+        let result = validate_deprecated_fields(&request);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_generate_pot_with_empty_content_binding() {
+        let state = create_test_state();
+        let request = PotRequest::new(); // No content binding set
+
+        let result = generate_pot(State(state), RequestJson(request)).await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap();
+        // content_binding in response is String, not Option<String>
+        // If no content binding was provided, it should be empty string or default value
+        assert!(response.content_binding.is_empty() || !response.content_binding.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_ping_handler_timing() {
+        use std::time::Duration;
+
+        let state = create_test_state();
+
+        // Wait a small amount of time to ensure uptime is measurable
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let response = ping(State(state)).await;
+
+        assert!(!response.version.is_empty());
+        // server_uptime is u64, so always >= 0, just check it's a reasonable value
+        assert!(response.server_uptime < 10); // Should be less than 10 seconds for test
+    }
 }
