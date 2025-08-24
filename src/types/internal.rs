@@ -329,7 +329,10 @@ mod tests {
         assert_eq!(minter.integrity_token, "integrity_token_123");
         assert_eq!(minter.estimated_ttl_secs, 3600);
         assert_eq!(minter.mint_refresh_threshold, 300);
-        assert_eq!(minter.websafe_fallback_token, Some("websafe_token".to_string()));
+        assert_eq!(
+            minter.websafe_fallback_token,
+            Some("websafe_token".to_string())
+        );
         assert!(!minter.is_expired());
     }
 
@@ -338,23 +341,9 @@ mod tests {
         let past_time = Utc::now() - Duration::hours(1);
         let future_time = Utc::now() + Duration::hours(1);
 
-        let expired_minter = TokenMinterEntry::new(
-            past_time,
-            "token",
-            3600,
-            300,
-            None,
-            "minter",
-        );
-        
-        let valid_minter = TokenMinterEntry::new(
-            future_time,
-            "token",
-            3600,
-            300,
-            None,
-            "minter",
-        );
+        let expired_minter = TokenMinterEntry::new(past_time, "token", 3600, 300, None, "minter");
+
+        let valid_minter = TokenMinterEntry::new(future_time, "token", 3600, 300, None, "minter");
 
         assert!(expired_minter.is_expired());
         assert!(!valid_minter.is_expired());

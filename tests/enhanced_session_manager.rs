@@ -16,8 +16,7 @@ async fn test_enhanced_session_manager_flow() {
     let session_manager = SessionManager::new(settings);
 
     // Test basic POT generation
-    let request = PotRequest::new()
-        .with_content_binding("dQw4w9WgXcQ"); // Rick Roll video ID
+    let request = PotRequest::new().with_content_binding("dQw4w9WgXcQ"); // Rick Roll video ID
 
     let response = session_manager.generate_pot_token(&request).await;
     assert!(response.is_ok());
@@ -33,8 +32,7 @@ async fn test_enhanced_cache_behavior() {
     let settings = Settings::default();
     let session_manager = SessionManager::new(settings);
 
-    let request = PotRequest::new()
-        .with_content_binding("test_video_id");
+    let request = PotRequest::new().with_content_binding("test_video_id");
 
     // First request should generate new token
     let response1 = session_manager.generate_pot_token(&request).await.unwrap();
@@ -51,15 +49,20 @@ async fn test_enhanced_bypass_cache() {
     let settings = Settings::default();
     let session_manager = SessionManager::new(settings);
 
-    let base_request = PotRequest::new()
-        .with_content_binding("test_video_id");
+    let base_request = PotRequest::new().with_content_binding("test_video_id");
 
     // First request
-    let _response1 = session_manager.generate_pot_token(&base_request).await.unwrap();
+    let _response1 = session_manager
+        .generate_pot_token(&base_request)
+        .await
+        .unwrap();
 
     // Second request with bypass_cache (should generate new token)
     let bypass_request = base_request.with_bypass_cache(true);
-    let response2 = session_manager.generate_pot_token(&bypass_request).await.unwrap();
+    let response2 = session_manager
+        .generate_pot_token(&bypass_request)
+        .await
+        .unwrap();
 
     // Should succeed (exact behavior depends on implementation)
     assert!(!response2.po_token.is_empty());
@@ -78,7 +81,7 @@ async fn test_enhanced_proxy_configuration() {
 
     // Should handle proxy configuration gracefully (TypeScript compatible)
     let result = session_manager.generate_pot_token(&request).await;
-    
+
     // Should succeed even with proxy configuration
     assert!(result.is_ok());
 }
@@ -99,7 +102,10 @@ async fn test_token_minter_entry_functionality() {
     assert_eq!(minter.integrity_token, "test_integrity_token");
     assert_eq!(minter.estimated_ttl_secs, 3600);
     assert_eq!(minter.mint_refresh_threshold, 300);
-    assert_eq!(minter.websafe_fallback_token, Some("websafe_fallback".to_string()));
+    assert_eq!(
+        minter.websafe_fallback_token,
+        Some("websafe_fallback".to_string())
+    );
     assert!(!minter.is_expired());
     assert!(minter.time_until_expiry().num_seconds() > 0);
 }
@@ -112,11 +118,11 @@ async fn test_visitor_data_generation() {
     // Test visitor data generation (placeholder implementation)
     let visitor_data = session_manager.generate_visitor_data().await.unwrap();
     assert!(!visitor_data.is_empty());
-    
+
     // Test that request without content_binding uses visitor data
     let request = PotRequest::new(); // No content binding
     let response = session_manager.generate_pot_token(&request).await.unwrap();
-    
+
     // Should use generated visitor data as content binding
     assert_eq!(response.content_binding, "placeholder_visitor_data");
 }
@@ -147,7 +153,7 @@ async fn test_cache_invalidation_operations() {
     // Generate some tokens to populate caches
     let request1 = PotRequest::new().with_content_binding("invalidate_test_1");
     let request2 = PotRequest::new().with_content_binding("invalidate_test_2");
-    
+
     let _response1 = session_manager.generate_pot_token(&request1).await.unwrap();
     let _response2 = session_manager.generate_pot_token(&request2).await.unwrap();
 
@@ -157,14 +163,14 @@ async fn test_cache_invalidation_operations() {
 
     // Test integrity token invalidation
     session_manager.invalidate_integrity_tokens().await.unwrap();
-    
+
     // Cache keys should still exist but be marked as expired
     let keys_after_it = session_manager.get_minter_cache_keys().await.unwrap();
     assert_eq!(cache_keys.len(), keys_after_it.len());
 
     // Test full cache invalidation
     session_manager.invalidate_caches().await.unwrap();
-    
+
     // All caches should be cleared
     let keys_after_clear = session_manager.get_minter_cache_keys().await.unwrap();
     assert!(keys_after_clear.is_empty());
@@ -190,7 +196,7 @@ async fn test_innertube_context_support() {
 
     let response = session_manager.generate_pot_token(&request).await;
     assert!(response.is_ok());
-    
+
     let pot_response = response.unwrap();
     assert_eq!(pot_response.content_binding, "innertube_test");
 }
@@ -221,7 +227,10 @@ async fn test_full_typescript_compatibility_scenario() {
 
     // Bypass cache should generate new token
     let bypass_request = request.with_bypass_cache(true);
-    let response3 = session_manager.generate_pot_token(&bypass_request).await.unwrap();
+    let response3 = session_manager
+        .generate_pot_token(&bypass_request)
+        .await
+        .unwrap();
     assert_eq!(response3.content_binding, "_9lZdqGdl_M");
     // Note: In placeholder implementation, tokens will be similar, but in real implementation they should differ
 }

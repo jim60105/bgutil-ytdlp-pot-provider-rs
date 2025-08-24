@@ -5,8 +5,8 @@
 
 use crate::Result;
 use reqwest::{Client, Proxy};
-use std::time::Duration;
 use std::collections::HashMap;
+use std::time::Duration;
 
 /// Proxy specification for network requests matching TypeScript ProxySpec
 #[derive(Debug, Clone, Default)]
@@ -102,7 +102,7 @@ impl NetworkManager {
     }
 
     /// Perform HTTP request with retry logic
-    /// 
+    ///
     /// Corresponds to TypeScript: `getFetch` method (L438-483)
     pub async fn fetch_with_retry(
         &self,
@@ -125,13 +125,16 @@ impl NetworkManager {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            crate::Error::internal("No error recorded during retries")
-        }))
+        Err(last_error
+            .unwrap_or_else(|| crate::Error::internal("No error recorded during retries")))
     }
 
     /// Perform single HTTP request
-    async fn perform_request(&self, url: &str, options: &RequestOptions) -> Result<reqwest::Response> {
+    async fn perform_request(
+        &self,
+        url: &str,
+        options: &RequestOptions,
+    ) -> Result<reqwest::Response> {
         let mut request = match options.method.as_str() {
             "GET" => self.client.get(url),
             "POST" => {
@@ -149,7 +152,9 @@ impl NetworkManager {
             request = request.header(key, value);
         }
 
-        let response = request.send().await
+        let response = request
+            .send()
+            .await
             .map_err(|e| crate::Error::internal(format!("HTTP request failed: {}", e)))?;
 
         Ok(response)
@@ -230,8 +235,7 @@ mod tests {
 
     #[test]
     fn test_proxy_spec_ipv6() {
-        let spec = ProxySpec::new()
-            .with_source_address("2001:db8::1");
+        let spec = ProxySpec::new().with_source_address("2001:db8::1");
 
         assert_eq!(spec.ip_family, Some(6));
     }
@@ -258,7 +262,10 @@ mod tests {
             .with_body(r#"{"test": "data"}"#);
 
         assert_eq!(options.method, "POST");
-        assert_eq!(options.headers.get("Content-Type"), Some(&"application/json".to_string()));
+        assert_eq!(
+            options.headers.get("Content-Type"),
+            Some(&"application/json".to_string())
+        );
         assert_eq!(options.body, Some(r#"{"test": "data"}"#.to_string()));
     }
 
@@ -266,20 +273,19 @@ mod tests {
     async fn test_network_manager_creation() {
         let spec = ProxySpec::new();
         let manager = NetworkManager::new(&spec);
-        
+
         assert!(manager.is_ok());
     }
 
     #[tokio::test]
     async fn test_network_manager_with_proxy() {
-        let spec = ProxySpec::new()
-            .with_proxy("http://proxy:8080");
-        
+        let spec = ProxySpec::new().with_proxy("http://proxy:8080");
+
         // This might fail if proxy URL is invalid format, but should handle gracefully
         let result = NetworkManager::new(&spec);
         // We accept either success or a proxy error for this test
         match result {
-            Ok(_) => {}, // Success
+            Ok(_) => {}                                         // Success
             Err(e) => assert!(e.to_string().contains("proxy")), // Expected proxy error
         }
     }

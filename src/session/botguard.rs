@@ -26,7 +26,7 @@ impl BotGuardManager {
     }
 
     /// Get descrambled challenge from Innertube or fallback endpoint
-    /// 
+    ///
     /// Corresponds to TypeScript: `getDescrambledChallenge` method (L243-317)
     pub async fn get_descrambled_challenge(
         &self,
@@ -40,7 +40,10 @@ impl BotGuardManager {
                 match self.get_challenge_from_innertube(&context).await {
                     Ok(challenge) => return Ok(challenge),
                     Err(e) => {
-                        tracing::warn!("Failed to get challenge from Innertube: {}, trying /Create endpoint", e);
+                        tracing::warn!(
+                            "Failed to get challenge from Innertube: {}, trying /Create endpoint",
+                            e
+                        );
                     }
                 }
             } else if let Some(challenge) = challenge {
@@ -67,11 +70,16 @@ impl BotGuardManager {
     }
 
     /// Process challenge data from webpage
-    async fn process_challenge_data(&self, _challenge: ChallengeData) -> Result<DescrambledChallenge> {
+    async fn process_challenge_data(
+        &self,
+        _challenge: ChallengeData,
+    ) -> Result<DescrambledChallenge> {
         // TODO: Implement challenge data processing
         // Fetch interpreter JavaScript and create DescrambledChallenge
         tracing::warn!("Challenge data processing not implemented yet");
-        Err(crate::Error::challenge("Challenge processing not implemented"))
+        Err(crate::Error::challenge(
+            "Challenge processing not implemented",
+        ))
     }
 
     /// Get challenge from /Create endpoint
@@ -99,10 +107,15 @@ mod tests {
         let manager = BotGuardManager::new(client, "test_key".to_string());
 
         let result = manager.get_descrambled_challenge(None, None, false).await;
-        
+
         // Should fail with not implemented error
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Create endpoint not implemented"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Create endpoint not implemented")
+        );
     }
 
     #[tokio::test]
@@ -111,9 +124,14 @@ mod tests {
         let manager = BotGuardManager::new(client, "test_key".to_string());
 
         let result = manager.get_descrambled_challenge(None, None, true).await;
-        
+
         // Should go straight to fallback
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Create endpoint not implemented"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Create endpoint not implemented")
+        );
     }
 }

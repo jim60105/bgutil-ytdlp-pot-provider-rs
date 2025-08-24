@@ -131,7 +131,9 @@ pub async fn invalidate_it(State(state): State<AppState>) -> StatusCode {
 /// GET /minter_cache
 ///
 /// Returns the current minter cache keys for debugging.
-pub async fn minter_cache(State(state): State<AppState>) -> Result<Json<Vec<String>>, (StatusCode, Json<ErrorResponse>)> {
+pub async fn minter_cache(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<String>>, (StatusCode, Json<ErrorResponse>)> {
     tracing::debug!("Retrieving minter cache keys");
     match state.session_manager.get_minter_cache_keys().await {
         Ok(cache_keys) => Ok(Json(cache_keys)),

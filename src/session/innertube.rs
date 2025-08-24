@@ -26,7 +26,7 @@ impl InnertubeClient {
     }
 
     /// Generate visitor data
-    /// 
+    ///
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
     pub async fn generate_visitor_data(&self) -> Result<String> {
         // TODO: Implement visitor data generation
@@ -61,7 +61,7 @@ mod tests {
 
         let result = innertube.generate_visitor_data().await;
         assert!(result.is_ok());
-        
+
         let visitor_data = result.unwrap();
         assert!(!visitor_data.is_empty());
         assert_eq!(visitor_data, "placeholder_visitor_data");
@@ -74,7 +74,7 @@ mod tests {
 
         let context = InnertubeContext::default();
         let result = innertube.get_challenge(&context).await;
-        
+
         // Should fail with not implemented error
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Not implemented"));

@@ -6,13 +6,13 @@
 use crate::{
     Result,
     config::Settings,
-    types::{PotRequest, PotResponse, TokenMinterEntry, SessionData},
+    types::{PotRequest, PotResponse, SessionData, TokenMinterEntry},
 };
 use chrono::{DateTime, Duration, Utc};
+use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use reqwest::Client;
 
 use super::ProxySpec;
 
@@ -54,47 +54,53 @@ impl SessionManager {
             session_data_caches: RwLock::new(HashMap::new()),
             minter_cache: RwLock::new(HashMap::new()),
             request_key: "O43z0dpjhgX20SCx4KAo".to_string(), // Hardcoded API key from TS
-            token_ttl_hours: 6, // Default from TS implementation
+            token_ttl_hours: 6,                              // Default from TS implementation
         }
     }
 
     /// Generate a POT token based on the request
-    /// 
+    ///
     /// Corresponds to TypeScript: `generatePoToken` method (L485-569)
     pub async fn generate_pot_token(&self, request: &PotRequest) -> Result<PotResponse> {
         let content_binding = self.get_content_binding(request).await?;
-        
+
         // Clean up expired cache entries
         self.cleanup_caches().await;
-        
+
         // Check cache first unless bypass_cache is true
         if !request.bypass_cache.unwrap_or(false)
             && let Some(cached_data) = self.get_cached_session_data(&content_binding).await
         {
-            tracing::info!("POT for {} still fresh, returning cached token", content_binding);
+            tracing::info!(
+                "POT for {} still fresh, returning cached token",
+                content_binding
+            );
             return Ok(PotResponse::from_session_data(cached_data));
         }
-        
+
         // Generate proxy specification
         let proxy_spec = self.create_proxy_spec(request).await?;
-        
+
         // Create cache key for minter
         let cache_key = self.create_cache_key(&proxy_spec, request)?;
-        
+
         // Get or create token minter
-        let token_minter = self.get_or_create_token_minter(&cache_key, request, &proxy_spec).await?;
-        
+        let token_minter = self
+            .get_or_create_token_minter(&cache_key, request, &proxy_spec)
+            .await?;
+
         // Mint POT token
         let session_data = self.mint_pot_token(&content_binding, &token_minter).await?;
-        
+
         // Cache the result
-        self.cache_session_data(&content_binding, &session_data).await;
-        
+        self.cache_session_data(&content_binding, &session_data)
+            .await;
+
         Ok(PotResponse::from_session_data(session_data))
     }
 
     /// Generate visitor data for new sessions
-    /// 
+    ///
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
     pub async fn generate_visitor_data(&self) -> Result<String> {
         // TODO: Implement Innertube integration
@@ -105,36 +111,36 @@ impl SessionManager {
     }
 
     /// Invalidate all cached tokens and minters
-    /// 
+    ///
     /// Corresponds to TypeScript: `invalidateCaches` method (L200-203)
     pub async fn invalidate_caches(&self) -> Result<()> {
         let mut session_cache = self.session_data_caches.write().await;
         session_cache.clear();
-        
+
         let mut minter_cache = self.minter_cache.write().await;
         minter_cache.clear();
-        
+
         tracing::info!("All caches invalidated");
         Ok(())
     }
 
     /// Invalidate integrity tokens by marking them as expired
-    /// 
+    ///
     /// Corresponds to TypeScript: `invalidateIT` method (L205-209)
     pub async fn invalidate_integrity_tokens(&self) -> Result<()> {
         let mut minter_cache = self.minter_cache.write().await;
         let expired_time = DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now);
-        
+
         for (_, minter) in minter_cache.iter_mut() {
             minter.expiry = expired_time;
         }
-        
+
         tracing::info!("All integrity tokens marked as expired");
         Ok(())
     }
 
     /// Get minter cache keys for debugging
-    /// 
+    ///
     /// Corresponds to TypeScript: server response in main.ts (L110-113)
     pub async fn get_minter_cache_keys(&self) -> Result<Vec<String>> {
         let cache = self.minter_cache.read().await;
@@ -142,7 +148,7 @@ impl SessionManager {
     }
 
     // Private helper methods...
-    
+
     /// Get content binding from request or generate visitor data
     async fn get_content_binding(&self, request: &PotRequest) -> Result<String> {
         match &request.content_binding {
@@ -157,7 +163,7 @@ impl SessionManager {
     /// Create proxy specification from request
     async fn create_proxy_spec(&self, request: &PotRequest) -> Result<ProxySpec> {
         let mut proxy_spec = ProxySpec::new();
-        
+
         // Set proxy URL from request or environment
         if let Some(proxy) = &request.proxy {
             proxy_spec = proxy_spec.with_proxy(proxy);
@@ -170,29 +176,29 @@ impl SessionManager {
                 proxy_spec = proxy_spec.with_proxy(proxy);
             }
         }
-        
+
         // Set source address
         if let Some(source_address) = &request.source_address {
             proxy_spec = proxy_spec.with_source_address(source_address);
         }
-        
+
         // Set TLS verification
-        proxy_spec = proxy_spec.with_disable_tls_verification(
-            request.disable_tls_verification.unwrap_or(false)
-        );
-        
+        proxy_spec = proxy_spec
+            .with_disable_tls_verification(request.disable_tls_verification.unwrap_or(false));
+
         Ok(proxy_spec)
     }
 
     /// Create cache key for minter cache
     fn create_cache_key(&self, proxy_spec: &ProxySpec, request: &PotRequest) -> Result<String> {
         // Extract remote host from innertube context if available
-        let remote_host = request.innertube_context
+        let remote_host = request
+            .innertube_context
             .as_ref()
             .and_then(|ctx| ctx.get("client"))
             .and_then(|client| client.get("remoteHost"))
             .and_then(|host| host.as_str());
-            
+
         Ok(proxy_spec.cache_key(remote_host))
     }
 
@@ -231,22 +237,22 @@ impl SessionManager {
                 return Ok(minter.clone());
             }
         }
-        
+
         // Generate new minter
         tracing::info!("POT minter expired or not found, generating new one");
         let new_minter = self.generate_token_minter(request, proxy_spec).await?;
-        
+
         // Cache the new minter
         {
             let mut cache = self.minter_cache.write().await;
             cache.insert(cache_key.to_string(), new_minter.clone());
         }
-        
+
         Ok(new_minter)
     }
 
     /// Generate new token minter
-    /// 
+    ///
     /// Corresponds to TypeScript: `generateTokenMinter` method (L318-408)
     async fn generate_token_minter(
         &self,
@@ -261,11 +267,11 @@ impl SessionManager {
         // 4. Taking snapshot and getting botguard response
         // 5. Generating integrity token via GenerateIT endpoint
         // 6. Creating WebPoMinter
-        
+
         tracing::warn!("Token minter generation not fully implemented, using placeholder");
-        
+
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
-        
+
         Ok(TokenMinterEntry::new(
             expires_at,
             "placeholder_integrity_token",
@@ -277,7 +283,7 @@ impl SessionManager {
     }
 
     /// Mint POT token using the token minter
-    /// 
+    ///
     /// Corresponds to TypeScript: `tryMintPOT` method (L410-436)
     async fn mint_pot_token(
         &self,
@@ -285,15 +291,15 @@ impl SessionManager {
         _token_minter: &TokenMinterEntry,
     ) -> Result<SessionData> {
         tracing::info!("Generating POT for {}", content_binding);
-        
+
         // TODO: Implement actual POT token minting
         // This should use the WebPoMinter to mint a token for the content binding
-        
+
         let po_token = format!("placeholder_pot_token_{}", content_binding);
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
-        
+
         tracing::info!("Generated POT token: {}", po_token);
-        
+
         Ok(SessionData::new(po_token, content_binding, expires_at))
     }
 }
@@ -428,7 +434,7 @@ mod tests {
         // Request without content binding should generate visitor data
         let request = PotRequest::new();
         let response = manager.generate_pot_token(&request).await.unwrap();
-        
+
         // Should use generated visitor data as content binding
         assert!(!response.content_binding.is_empty());
         assert_eq!(response.content_binding, "placeholder_visitor_data");
@@ -458,7 +464,7 @@ mod tests {
     #[tokio::test]
     async fn test_environment_proxy_detection() {
         use std::env;
-        
+
         let settings = Settings::default();
         let manager = SessionManager::new(settings);
 
@@ -469,7 +475,7 @@ mod tests {
 
         let request = PotRequest::new().with_content_binding("test_env_proxy");
         let response = manager.generate_pot_token(&request).await;
-        
+
         // Should succeed even with environment proxy
         assert!(response.is_ok());
 
