@@ -69,17 +69,216 @@ std::fs::write("/tmp/global_config.toml", content);
 
 ## Architecture and Design
 
-TODO
+The project follows a comprehensive testing architecture designed for safety, isolation, and maintainability. This includes:
+
+- **Dependency Injection**: All services and dependencies are injected to enable easy mocking and testing
+- **Test-Driven Development (TDD)**: Write tests first, then implement functionality to pass them
+- **Layer-specific Testing**: Unit tests, integration tests, and contract tests for different layers
+- **Mock-first Approach**: Use mocking extensively to isolate components under test
+
+### TDD Development Workflow
+
+The project follows Test-Driven Development practices to ensure high quality and maintainable code:
+
+#### Red-Green-Refactor Cycle
+
+1. **Red Phase**: Write a failing test that describes the desired functionality
+   ```rust
+   #[test]
+   fn test_pot_token_generation_with_cache() {
+       let session_manager = create_test_session_manager();
+       let request = PotRequest::new().with_content_binding("test_video");
+       
+       // This should fail initially
+       let result = session_manager.generate_pot_token(&request).await;
+       assert!(result.is_ok());
+   }
+   ```
+
+2. **Green Phase**: Write the minimal code necessary to make the test pass
+   ```rust
+   impl SessionManager {
+       pub async fn generate_pot_token(&self, request: &PotRequest) -> Result<PotResponse> {
+           // Minimal implementation to pass the test
+           Ok(PotResponse::new("test_token", "test_video", Utc::now()))
+       }
+   }
+   ```
+
+3. **Refactor Phase**: Improve the code while keeping tests passing
+   ```rust
+   impl SessionManager {
+       pub async fn generate_pot_token(&self, request: &PotRequest) -> Result<PotResponse> {
+           // Improved implementation with proper logic
+           let token = self.botguard_client.generate_token(request).await?;
+           Ok(PotResponse::new(token, request.content_binding, calculate_expiry()))
+       }
+   }
+   ```
+
+#### Module Development Strategy
+
+For each new module or feature:
+
+1. **Define Integration Tests**: Start with high-level behavior tests
+2. **Write Unit Tests**: Test individual functions and methods
+3. **Implement Interfaces**: Define traits and public APIs
+4. **Implement Core Logic**: Add the actual business logic
+5. **Refactor and Optimize**: Improve performance and maintainability
+
+#### TDD Best Practices
+
+- **Test One Thing**: Each test should verify a single behavior
+- **Use Descriptive Names**: Test names should clearly describe what is being tested
+- **Arrange-Act-Assert**: Structure tests with clear setup, execution, and verification phases
+- **Mock External Dependencies**: Use dependency injection to isolate units under test
+- **Test Edge Cases**: Include error conditions and boundary cases
+
+### Professional Testing Tools
+
+The project leverages professional testing tools for enhanced TDD workflow:
+
+- **`wiremock`**: HTTP service mocking for integration tests
+- **`pretty_assertions`**: Enhanced test output with clear diffs
+- **`rstest`**: Parameterized testing for comprehensive coverage
+- **`fake`**: Test data generation for realistic scenarios
+- **`serde_path_to_error`**: Improved JSON deserialization error diagnostics
+
+Example usage of professional testing tools:
+
+```rust
+use wiremock::{MockServer, Mock, ResponseTemplate};
+use rstest::rstest;
+use fake::{Fake, Faker};
+use pretty_assertions::assert_eq;
+
+#[rstest]
+#[case("video_id_1")]
+#[case("video_id_2")]
+async fn test_pot_generation_multiple_videos(#[case] video_id: &str) {
+    let mock_server = MockServer::start().await;
+    
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(mock_response()))
+        .mount(&mock_server)
+        .await;
+    
+    let session_manager = create_test_session_manager_with_mock(&mock_server);
+    let request = PotRequest::new().with_content_binding(video_id);
+    
+    let result = session_manager.generate_pot_token(&request).await;
+    assert!(result.is_ok());
+}
+```
 
 ## Dependency Injection in Tests
 
-TODO
+The testing architecture heavily relies on dependency injection to enable comprehensive testing without sacrificing safety or performance.
+
+### Service Injection Pattern
+
+All services accept dependencies through their constructors, making them easily testable:
+
+```rust
+pub struct SessionManager {
+    botguard_client: Arc<dyn BotGuardClient>,
+    cache: Arc<dyn CacheService>,
+    settings: Settings,
+}
+
+impl SessionManager {
+    pub fn new(
+        botguard_client: Arc<dyn BotGuardClient>,
+        cache: Arc<dyn CacheService>,
+        settings: Settings,
+    ) -> Self {
+        Self { botguard_client, cache, settings }
+    }
+}
+
+// In tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::mock;
+    
+    mock! {
+        BotGuardClient {}
+        
+        #[async_trait]
+        impl BotGuardClient for BotGuardClient {
+            async fn generate_token(&self, request: &PotRequest) -> Result<String>;
+        }
+    }
+    
+    #[tokio::test]
+    async fn test_session_manager_with_mock() {
+        let mut mock_client = MockBotGuardClient::new();
+        mock_client.expect_generate_token()
+            .returning(|_| Ok("test_token".to_string()));
+        
+        let session_manager = SessionManager::new(
+            Arc::new(mock_client),
+            Arc::new(MockCacheService::new()),
+            Settings::default(),
+        );
+        
+        // Test with injected mocks
+    }
+}
+```
 
 ## Test Organization
 
 ### Directory Structure
 
-TODO
+The project follows a comprehensive test organization strategy:
+
+```
+tests/
+├── common/                     # Shared test utilities
+│   ├── mod.rs                 # Test factories and helpers
+│   └── ...
+├── integration/               # Integration tests
+│   ├── basic_tests.rs         # Core functionality tests
+│   ├── server_tests.rs        # HTTP server tests
+│   ├── cli_tests.rs           # CLI application tests
+│   └── mod.rs
+├── api_compatibility_tests.rs # Contract tests for TypeScript compatibility
+├── cli_integration.rs         # CLI integration tests
+├── enhanced_session_manager.rs # Session manager tests
+└── server_integration.rs      # Server integration tests
+```
+
+#### Test Categories
+
+1. **Unit Tests**: Located within source files using `#[cfg(test)]`
+   - Test individual functions and methods
+   - Use dependency injection for isolation
+   - Fast execution (< 100ms per test)
+
+2. **Integration Tests**: Located in `tests/integration/`
+   - Test component interactions
+   - Use real implementations where appropriate
+   - Focus on data flow and API contracts
+
+3. **Contract Tests**: Located in `tests/api_compatibility_tests.rs`
+   - Ensure API compatibility with TypeScript version
+   - Validate JSON schema compliance
+   - Test serialization/deserialization consistency
+
+4. **End-to-End Tests**: Located in `tests/*_integration.rs`
+   - Test complete workflows
+   - Use real HTTP servers and CLI processes
+   - Validate user-facing functionality
+
+#### Test Utilities Organization
+
+- **`tests/common/mod.rs`**: Comprehensive test infrastructure
+  - `TestConfig`: Configuration factories for different test scenarios
+  - `MockData`: Test data generation and fixtures
+  - `MockServerFactory`: HTTP service mocking setup
+  - `TestUtils`: Async testing utilities and helpers
 
 ### Unit Test Location
 

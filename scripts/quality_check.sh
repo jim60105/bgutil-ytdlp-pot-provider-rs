@@ -201,6 +201,41 @@ run_test_with_conditional_output() {
     fi
 }
 
+# Benchmark validation function
+benchmark_validation() {
+    if [[ "${VERBOSE}" == "true" ]]; then
+        print_status "$BLUE" "\n⚡ Running check: Benchmark Validation"
+    fi
+    total_checks=$((total_checks + 1))
+    
+    # Check if benchmark directory exists
+    if [ -d "benches" ]; then
+        print_status "$YELLOW" "⚠️  Found benches/ directory"
+        print_status "$YELLOW" "   Performance benchmarks are disabled for this project"
+        print_status "$YELLOW" "   Reason: Core functionality involves external API calls"
+        print_status "$YELLOW" "   Running benchmarks would constitute denial-of-service attacks"
+        
+        # Check if Cargo.toml has benchmark definitions
+        if grep -q '\[\[bench\]\]' Cargo.toml 2>/dev/null; then
+            print_status "$YELLOW" "⚠️  Found benchmark definitions in Cargo.toml"
+            print_status "$YELLOW" "   These should be removed for external API safety"
+        fi
+        
+        if [[ "${FULL_TESTS}" == "true" ]]; then
+            print_status "$YELLOW" "   Benchmark directory and definitions detected but not executed"
+            print_status "$YELLOW" "   This is intentional to prevent external API DOS attacks"
+        else
+            print_status "$YELLOW" "   Use --full to see detailed benchmark validation messages"
+        fi
+    else
+        if [[ "${VERBOSE}" == "true" ]]; then
+            print_status "$GREEN" "✅ No benchmark directory found (correct for external API project)"
+        fi
+    fi
+    
+    passed_checks=$((passed_checks + 1))
+}
+
 # Main function
 main() {
     parse_args "$@"
@@ -316,6 +351,9 @@ main() {
 
     # 8. Integration tests  
     run_test_with_conditional_output "Integration Tests" "cargo nextest run --profile ${NEXTEST_PROFILE} --ignore-default-filter"
+
+    # 9. Benchmark validation (no execution for external API safety)
+    benchmark_validation
 
     # Cleanup
     # (Temporary files are cleaned up in their respective sections)

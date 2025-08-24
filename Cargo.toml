@@ -96,6 +96,13 @@ predicates = "3.0"
 # HTTP mocking for testing
 mockito = "1.7"
 
+# Professional testing tools for enhanced TDD workflow
+wiremock = "0.6"           # HTTP service mocking
+serde_path_to_error = "0.1" # Enhanced JSON error diagnostics
+pretty_assertions = "1.4"   # Improved test output formatting
+rstest = "0.22"            # Parameterized testing framework
+fake = "2.9"               # Test data generation
+
 [profile.release]
 opt-level = 3
 lto = true
