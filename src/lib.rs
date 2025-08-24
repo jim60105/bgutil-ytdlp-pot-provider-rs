@@ -43,7 +43,7 @@ pub mod session;
 pub mod types;
 pub mod utils;
 
-pub use config::Settings;
+pub use config::{ConfigLoader, Settings};
 pub use error::{Error, Result};
 pub use session::SessionManager;
 pub use types::{ErrorResponse, PingResponse, PotRequest, PotResponse};

@@ -70,10 +70,10 @@ impl FileCache {
             && let Err(e) = fs::create_dir_all(parent).await
         {
             error!("Failed to create cache directory {:?}: {}", parent, e);
-            return Err(crate::Error::cache(format!(
-                "Directory creation failed: {}",
-                e
-            )));
+            return Err(crate::Error::cache(
+                "directory_creation",
+                &format!("Directory creation failed: {}", e),
+            ));
         }
 
         match fs::write(&self.cache_path, content).await {
@@ -83,7 +83,10 @@ impl FileCache {
             }
             Err(e) => {
                 error!("Failed to write cache file {:?}: {}", self.cache_path, e);
-                Err(crate::Error::cache(format!("Write failed: {}", e)))
+                Err(crate::Error::cache(
+                    "file_write",
+                    &format!("Write failed: {}", e),
+                ))
             }
         }
     }
@@ -119,12 +122,14 @@ impl FileCache {
     /// Parse individual cache entry
     fn parse_cache_entry(&self, content_binding: &str, entry: CacheEntry) -> Result<SessionData> {
         let expires_at = DateTime::parse_from_rfc3339(&entry.expires_at)
-            .map_err(|e| crate::Error::cache(format!("Invalid expiration date: {}", e)))?
+            .map_err(|e| {
+                crate::Error::cache("date_parse", &format!("Invalid expiration date: {}", e))
+            })?
             .with_timezone(&Utc);
 
         // Validate that the entry hasn't expired
         if expires_at <= Utc::now() {
-            return Err(crate::Error::cache("Entry has expired".to_string()));
+            return Err(crate::Error::cache("validation", "Entry has expired"));
         }
 
         Ok(SessionData::new(

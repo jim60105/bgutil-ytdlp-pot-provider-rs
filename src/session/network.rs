@@ -79,8 +79,9 @@ impl NetworkManager {
 
         // Configure proxy if specified
         if let Some(proxy_url) = &proxy_spec.proxy_url {
-            let proxy = Proxy::all(proxy_url)
-                .map_err(|e| crate::Error::proxy(format!("Invalid proxy URL: {}", e)))?;
+            let proxy = Proxy::all(proxy_url).map_err(|e| {
+                crate::Error::proxy(proxy_url, &format!("Invalid proxy URL: {}", e))
+            })?;
             client_builder = client_builder.proxy(proxy);
         }
 
@@ -89,9 +90,12 @@ impl NetworkManager {
             client_builder = client_builder.danger_accept_invalid_certs(true);
         }
 
-        let client = client_builder
-            .build()
-            .map_err(|e| crate::Error::proxy(format!("Failed to create HTTP client: {}", e)))?;
+        let client = client_builder.build().map_err(|e| {
+            crate::Error::proxy(
+                "client_builder",
+                &format!("Failed to create HTTP client: {}", e),
+            )
+        })?;
 
         Ok(Self { client })
     }

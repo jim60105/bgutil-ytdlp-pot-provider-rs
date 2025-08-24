@@ -60,25 +60,7 @@ fn validate_deprecated_fields(_request: &PotRequest) -> Result<(), ErrorResponse
 ///
 /// Corresponds to TypeScript `strerror` function in `utils.ts`
 fn format_error(error: &crate::Error) -> String {
-    match error {
-        crate::Error::BotGuard { message } => format!("BotGuard error: {}", message),
-        crate::Error::TokenGeneration(msg) => format!("Token generation failed: {}", msg),
-        crate::Error::IntegrityToken { details } => format!("Integrity token error: {}", details),
-        crate::Error::Challenge { stage } => format!("Challenge processing failed at {}", stage),
-        crate::Error::Proxy { config } => format!("Proxy configuration error: {}", config),
-        crate::Error::Network(e) => format!("Network error: {}", e),
-        crate::Error::Json(e) => format!("JSON error: {}", e),
-        crate::Error::Io(e) => format!("I/O error: {}", e),
-        crate::Error::DateParse(e) => format!("Date parsing error: {}", e),
-        crate::Error::Cache { operation } => format!("Cache operation failed: {}", operation),
-        crate::Error::Config(msg) => format!("Configuration error: {}", msg),
-        crate::Error::VisitorData { reason } => {
-            format!("Visitor data generation failed: {}", reason)
-        }
-        crate::Error::Internal(msg) => format!("Internal error: {}", msg),
-        crate::Error::Session(msg) => format!("Session error: {}", msg),
-        crate::Error::Server(msg) => format!("Server error: {}", msg),
-    }
+    crate::error::format_error(error)
 }
 
 /// Ping endpoint for health checks
@@ -208,50 +190,57 @@ mod tests {
     #[test]
     fn test_format_error_botguard() {
         let error = crate::Error::BotGuard {
+            code: "500".to_string(),
             message: "BotGuard initialization failed".to_string(),
+            info: None,
         };
         let formatted = format_error(&error);
-        assert_eq!(formatted, "BotGuard error: BotGuard initialization failed");
+        assert!(formatted.contains("BGError(500)"));
+        assert!(formatted.contains("BotGuard initialization failed"));
     }
 
     #[test]
     fn test_format_error_token_generation() {
-        let error = crate::Error::TokenGeneration("Failed to generate token".to_string());
+        let error = crate::Error::TokenGeneration {
+            reason: "Failed to generate token".to_string(),
+            stage: None,
+        };
         let formatted = format_error(&error);
-        assert_eq!(
-            formatted,
-            "Token generation failed: Failed to generate token"
-        );
+        assert!(formatted.contains("Token generation failed"));
+        assert!(formatted.contains("Failed to generate token"));
     }
 
     #[test]
     fn test_format_error_integrity_token() {
         let error = crate::Error::IntegrityToken {
             details: "Invalid token structure".to_string(),
+            response_data: None,
         };
         let formatted = format_error(&error);
-        assert_eq!(formatted, "Integrity token error: Invalid token structure");
+        assert!(formatted.contains("Integrity token error"));
+        assert!(formatted.contains("Invalid token structure"));
     }
 
     #[test]
     fn test_format_error_challenge() {
         let error = crate::Error::Challenge {
             stage: "verification".to_string(),
+            message: "Processing failed".to_string(),
         };
         let formatted = format_error(&error);
-        assert_eq!(formatted, "Challenge processing failed at verification");
+        assert!(formatted.contains("Challenge processing failed"));
+        assert!(formatted.contains("verification"));
     }
 
     #[test]
     fn test_format_error_proxy() {
         let error = crate::Error::Proxy {
-            config: "Invalid proxy settings".to_string(),
+            config: "http://proxy:8080".to_string(),
+            message: "Invalid proxy settings".to_string(),
         };
         let formatted = format_error(&error);
-        assert_eq!(
-            formatted,
-            "Proxy configuration error: Invalid proxy settings"
-        );
+        assert!(formatted.contains("Proxy error"));
+        assert!(formatted.contains("Invalid proxy settings"));
     }
 
     #[tokio::test]
@@ -265,9 +254,9 @@ mod tests {
         assert!(result.is_err());
 
         let reqwest_error = result.unwrap_err();
-        let error = crate::Error::Network(reqwest_error);
+        let error = crate::Error::Http(reqwest_error);
         let formatted = format_error(&error);
-        assert!(formatted.starts_with("Network error:"));
+        assert!(formatted.starts_with("HTTP request failed:"));
     }
 
     #[test]
@@ -300,42 +289,45 @@ mod tests {
     #[test]
     fn test_format_error_cache() {
         let error = crate::Error::Cache {
-            operation: "Failed to store cache entry".to_string(),
+            operation: "store".to_string(),
+            details: "Failed to store cache entry".to_string(),
         };
         let formatted = format_error(&error);
-        assert_eq!(
-            formatted,
-            "Cache operation failed: Failed to store cache entry"
-        );
+        assert!(formatted.contains("Cache error"));
+        assert!(formatted.contains("Failed to store cache entry"));
     }
 
     #[test]
     fn test_format_error_config() {
-        let error = crate::Error::Config("Invalid configuration parameter".to_string());
+        let error = crate::Error::Config {
+            field: "timeout".to_string(),
+            message: "Invalid configuration parameter".to_string(),
+        };
         let formatted = format_error(&error);
-        assert_eq!(
-            formatted,
-            "Configuration error: Invalid configuration parameter"
-        );
+        assert!(formatted.contains("Configuration error"));
+        assert!(formatted.contains("Invalid configuration parameter"));
     }
 
     #[test]
     fn test_format_error_visitor_data() {
         let error = crate::Error::VisitorData {
             reason: "Failed to generate visitor data".to_string(),
+            context: None,
         };
         let formatted = format_error(&error);
-        assert_eq!(
-            formatted,
-            "Visitor data generation failed: Failed to generate visitor data"
-        );
+        assert!(formatted.contains("Visitor data generation failed"));
+        assert!(formatted.contains("Failed to generate visitor data"));
     }
 
     #[test]
     fn test_format_error_internal() {
-        let error = crate::Error::Internal("Unexpected internal state".to_string());
+        let error = crate::Error::Internal {
+            message: "Unexpected internal state".to_string(),
+            context: None,
+        };
         let formatted = format_error(&error);
-        assert_eq!(formatted, "Internal error: Unexpected internal state");
+        assert!(formatted.contains("Internal error"));
+        assert!(formatted.contains("Unexpected internal state"));
     }
 
     #[test]
