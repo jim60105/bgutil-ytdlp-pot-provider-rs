@@ -5,7 +5,7 @@
 
 use bgutil_ytdlp_pot_provider::{
     config::Settings,
-    session::{SessionManager, WebPoMinter, JsRuntimeHandle},
+    session::{JsRuntimeHandle, SessionManager, WebPoMinter},
     types::{PotRequest, TokenMinterEntry},
 };
 use chrono::{Duration, Utc};

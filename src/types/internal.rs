@@ -346,10 +346,12 @@ mod tests {
         let future_time = Utc::now() + Duration::hours(1);
 
         let test_minter1 = create_test_webpo_minter();
-        let expired_minter = TokenMinterEntry::new(past_time, "token", 3600, 300, None, test_minter1);
+        let expired_minter =
+            TokenMinterEntry::new(past_time, "token", 3600, 300, None, test_minter1);
 
         let test_minter2 = create_test_webpo_minter();
-        let valid_minter = TokenMinterEntry::new(future_time, "token", 3600, 300, None, test_minter2);
+        let valid_minter =
+            TokenMinterEntry::new(future_time, "token", 3600, 300, None, test_minter2);
 
         assert!(expired_minter.is_expired());
         assert!(!valid_minter.is_expired());
@@ -359,7 +361,7 @@ mod tests {
     /// Helper function to create a test WebPoMinter
     fn create_test_webpo_minter() -> WebPoMinter {
         use crate::session::webpo_minter::JsRuntimeHandle;
-        
+
         WebPoMinter {
             mint_callback_ref: "test_callback".to_string(),
             runtime_handle: JsRuntimeHandle::new_for_test(),

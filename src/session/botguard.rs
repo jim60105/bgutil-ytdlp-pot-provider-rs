@@ -412,7 +412,10 @@ impl BotGuardClient {
 
         let result = self
             .runtime
-            .execute_script("botguard_snapshot_with_args.js", FastString::from(snapshot_script))
+            .execute_script(
+                "botguard_snapshot_with_args.js",
+                FastString::from(snapshot_script),
+            )
             .map_err(|e| {
                 crate::Error::botguard(format!("Failed to generate BotGuard snapshot: {}", e))
             })?;
@@ -834,12 +837,12 @@ mod tests {
     fn test_botguard_client_get_runtime_handle() {
         let interpreter_js = "// test script";
         let client = BotGuardClient::new(interpreter_js, "test_program", "testBG");
-        
+
         // This should compile and create a runtime handle
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let client = client.await.unwrap();
             let handle = client.get_runtime_handle();
-            
+
             // The handle should be in test mode for now
             assert!(format!("{:?}", handle).contains("_test_mode"));
         });
