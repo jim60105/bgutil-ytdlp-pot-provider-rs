@@ -46,7 +46,7 @@ usage() {
     echo "Options:"
     echo "  -t, --threshold PERCENT   Set coverage threshold (default: ${DEFAULT_THRESHOLD}%)"
     echo "  -p, --profile PROFILE     Set nextest profile (default: ${DEFAULT_NEXTEST_PROFILE})"
-    echo "  --full                   Run full tests including slow tests (sets profile to full and enables slow-tests feature)"
+    echo "  --full                   Run full tests using full nextest profile (longer timeouts)"
     echo "  -T, --table              Show coverage table for all files"
     echo "  -f, --file FILENAME      Show coverage for specific file (supports partial matching)"
     echo "  -v, --verbose            Show verbose output"
@@ -60,10 +60,10 @@ usage() {
     echo "Available nextest profiles: default, ci, quick, full"
     echo ""
     echo "Examples:"
-    echo "  $0                       Check coverage with default threshold and profile (excludes slow tests)"
+    echo "  $0                       Check coverage with default threshold and profile"
     echo "  $0 -t 80                 Set threshold to 80%"
     echo "  $0 -p ci                 Use CI profile"
-    echo "  $0 --full                Run full tests including slow tests (~90 vs ~143 seconds)"
+    echo "  $0 --full                Run with full nextest profile (longer timeouts)"
     echo "  $0 --table               Show coverage table for all files"
     echo "  $0 -f manager.rs         Show coverage for files matching 'manager.rs'"
     echo "  $0 --lcov lcov.info      Generate both JSON and LCOV coverage reports"
@@ -337,24 +337,20 @@ check_coverage() {
     echo -e "${BLUE}🔍 Checking test coverage...${NC}"
     echo -e "${BLUE}🔧 Using nextest profile: ${NEXTEST_PROFILE}${NC}"
     if [[ "${FULL_TESTS}" == "true" ]]; then
-        echo -e "${BLUE}⚡ Full tests mode: Including slow tests (~143s vs ~90s)${NC}"
+        echo -e "${BLUE}⚡ Full tests mode: Using full nextest profile with longer timeouts${NC}"
     else
-        echo -e "${BLUE}🚀 Fast tests mode: Excluding slow tests (~90s vs ~143s)${NC}"
-        echo -e "${BLUE}   Use --full to include slow tests${NC}"
+        echo -e "${BLUE}🚀 Fast tests mode: Using default nextest profile${NC}"
+        echo -e "${BLUE}   Use --full to use the full nextest profile${NC}"
     fi
 
     # Generate coverage report
     local coverage_json
     local coverage_cmd_output
-    local coverage_features=""
-    if [[ "${FULL_TESTS}" == "true" ]]; then
-        coverage_features="--features slow-tests"
-    fi
     
     echo -e "${BLUE}📄 Running tests to generate coverage data...${NC}"
     
     # First, run tests once to generate coverage data
-    if ! cargo llvm-cov nextest --profile "${NEXTEST_PROFILE}" --workspace ${coverage_features} --no-report >/dev/null 2>&1; then
+    if ! cargo llvm-cov nextest --profile "${NEXTEST_PROFILE}" --workspace --no-report >/dev/null 2>&1; then
         echo -e "${RED}❌ Unable to run tests for coverage${NC}" >&2
         exit 1
     fi
