@@ -10,7 +10,7 @@ pub mod manager;
 pub mod network;
 pub mod webpo_minter;
 
-pub use botguard::BotGuardManager;
+pub use botguard::{BotGuardManager, SnapshotArgs};
 pub use innertube::InnertubeClient;
 pub use manager::SessionManager;
 pub use network::{NetworkManager, ProxySpec, RequestOptions};
