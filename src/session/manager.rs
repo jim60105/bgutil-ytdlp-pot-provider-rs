@@ -87,6 +87,21 @@ impl SessionManager {
         minter_cache.clear();
     }
 
+    /// Invalidate integrity tokens
+    pub async fn invalidate_integrity_tokens(&self) {
+        // TODO: Implement integrity token invalidation
+        // For now, clear the minter cache which contains integrity tokens
+        let mut minter_cache = self.minter_cache.write().await;
+        minter_cache.clear();
+        tracing::debug!("Integrity tokens invalidated");
+    }
+
+    /// Get minter cache keys for debugging
+    pub async fn get_minter_cache_keys(&self) -> Vec<String> {
+        let cache = self.minter_cache.read().await;
+        cache.keys().cloned().collect()
+    }
+
     /// Get cached token for content binding
     async fn get_cached_token(&self, content_binding: &str) -> Option<PotResponse> {
         let cache = self.session_cache.read().await;
