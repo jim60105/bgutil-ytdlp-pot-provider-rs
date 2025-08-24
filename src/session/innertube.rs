@@ -39,7 +39,7 @@ impl InnertubeClient {
     pub async fn get_challenge(&self, _context: &InnertubeContext) -> Result<ChallengeData> {
         // TODO: Implement challenge retrieval
         tracing::warn!("Challenge retrieval not implemented yet");
-        Err(crate::Error::challenge("Not implemented"))
+        Err(crate::Error::challenge("innertube", "Not implemented"))
     }
 }
 

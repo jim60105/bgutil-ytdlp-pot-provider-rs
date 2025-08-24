@@ -68,7 +68,10 @@ impl BotGuardManager {
         // TODO: Implement Innertube API call
         // POST to https://www.youtube.com/youtubei/v1/att/get?prettyPrint=false
         tracing::warn!("Innertube challenge retrieval not implemented yet");
-        Err(crate::Error::challenge("Innertube not implemented"))
+        Err(crate::Error::challenge(
+            "innertube",
+            "Innertube not implemented",
+        ))
     }
 
     /// Process challenge data from webpage
@@ -80,6 +83,7 @@ impl BotGuardManager {
         // Fetch interpreter JavaScript and create DescrambledChallenge
         tracing::warn!("Challenge data processing not implemented yet");
         Err(crate::Error::challenge(
+            "challenge_processing",
             "Challenge processing not implemented",
         ))
     }
@@ -118,12 +122,12 @@ impl BotGuardManager {
     /// Parse Integrity Token API response
     fn parse_integrity_token_response(&self, raw_data: &Value) -> Result<IntegrityTokenResponse> {
         let array = raw_data.as_array().ok_or_else(|| {
-            crate::Error::integrity_token("Invalid IntegrityToken response format".to_string())
+            crate::Error::integrity_token("Invalid IntegrityToken response format")
         })?;
 
         if array.is_empty() {
             return Err(crate::Error::integrity_token(
-                "Empty IntegrityToken response".to_string(),
+                "Empty IntegrityToken response",
             ));
         }
 
@@ -161,11 +165,12 @@ impl BotGuardManager {
     fn parse_waa_response(&self, raw_data: &Value) -> Result<WaaResponse> {
         let array = raw_data
             .as_array()
-            .ok_or_else(|| crate::Error::challenge("Invalid WAA response format".to_string()))?;
+            .ok_or_else(|| crate::Error::challenge("waa_parse", "Invalid WAA response format"))?;
 
         if array.len() < 5 {
             return Err(crate::Error::challenge(
-                "Insufficient WAA response data".to_string(),
+                "waa_parse",
+                "Insufficient WAA response data",
             ));
         }
 
@@ -286,7 +291,10 @@ impl BotGuardClient {
                 FastString::from(interpreter_javascript.to_string()),
             )
             .map_err(|e| {
-                crate::Error::botguard(format!("Failed to execute interpreter script: {}", e))
+                crate::Error::botguard_legacy(format!(
+                    "Failed to execute interpreter script: {}",
+                    e
+                ))
             })?;
 
         Ok(Self {
@@ -344,7 +352,7 @@ impl BotGuardClient {
         self.runtime
             .execute_script("botguard_init.js", FastString::from(init_script))
             .map_err(|e| {
-                crate::Error::botguard(format!("Failed to initialize BotGuard VM: {}", e))
+                crate::Error::botguard_legacy(format!("Failed to initialize BotGuard VM: {}", e))
             })?;
 
         // Store VM functions info (simplified for now)
@@ -362,7 +370,7 @@ impl BotGuardClient {
     /// Generate BotGuard response using the VM
     pub async fn generate_response(&mut self) -> Result<String> {
         if self.vm_functions.is_none() {
-            return Err(crate::Error::botguard(
+            return Err(crate::Error::botguard_legacy(
                 "VM not initialized. Call load_program() first.".to_string(),
             ));
         }
@@ -375,7 +383,10 @@ impl BotGuardClient {
                 FastString::from("globalThis.syncSnapshot()".to_string()),
             )
             .map_err(|e| {
-                crate::Error::botguard(format!("Failed to generate BotGuard response: {}", e))
+                crate::Error::botguard_legacy(format!(
+                    "Failed to generate BotGuard response: {}",
+                    e
+                ))
             })?;
 
         // Convert the result to string (simplified)
@@ -387,7 +398,7 @@ impl BotGuardClient {
     /// This method supports the WebPoMinter workflow
     pub async fn snapshot(&mut self, args: SnapshotArgs<'_>) -> Result<String> {
         if self.vm_functions.is_none() {
-            return Err(crate::Error::botguard(
+            return Err(crate::Error::botguard_legacy(
                 "VM not initialized. Call load_program() first.".to_string(),
             ));
         }
@@ -417,7 +428,10 @@ impl BotGuardClient {
                 FastString::from(snapshot_script),
             )
             .map_err(|e| {
-                crate::Error::botguard(format!("Failed to generate BotGuard snapshot: {}", e))
+                crate::Error::botguard_legacy(format!(
+                    "Failed to generate BotGuard snapshot: {}",
+                    e
+                ))
             })?;
 
         // TODO: Extract webPoSignalOutput from the result if provided
