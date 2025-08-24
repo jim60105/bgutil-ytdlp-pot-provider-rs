@@ -44,6 +44,15 @@ impl PotResponse {
     pub fn time_until_expiry(&self) -> chrono::Duration {
         self.expires_at - Utc::now()
     }
+
+    /// Create a POT response from session data
+    pub fn from_session_data(session_data: crate::types::SessionData) -> Self {
+        Self {
+            po_token: session_data.po_token,
+            content_binding: session_data.content_binding,
+            expires_at: session_data.expires_at,
+        }
+    }
 }
 
 /// Ping response for health checks
