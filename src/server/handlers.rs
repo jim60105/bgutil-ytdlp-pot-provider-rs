@@ -105,7 +105,10 @@ pub async fn ping(State(state): State<AppState>) -> Json<PingResponse> {
 /// Clears all internal caches.
 pub async fn invalidate_caches(State(state): State<AppState>) -> StatusCode {
     tracing::info!("Invalidating all caches");
-    state.session_manager.invalidate_caches().await;
+    if let Err(e) = state.session_manager.invalidate_caches().await {
+        tracing::error!("Failed to invalidate caches: {}", e);
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
     StatusCode::NO_CONTENT
 }
 
@@ -116,7 +119,10 @@ pub async fn invalidate_caches(State(state): State<AppState>) -> StatusCode {
 /// Invalidates integrity tokens to force regeneration.
 pub async fn invalidate_it(State(state): State<AppState>) -> StatusCode {
     tracing::info!("Invalidating integrity tokens");
-    state.session_manager.invalidate_integrity_tokens().await;
+    if let Err(e) = state.session_manager.invalidate_integrity_tokens().await {
+        tracing::error!("Failed to invalidate integrity tokens: {}", e);
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
     StatusCode::NO_CONTENT
 }
 
@@ -125,10 +131,18 @@ pub async fn invalidate_it(State(state): State<AppState>) -> StatusCode {
 /// GET /minter_cache
 ///
 /// Returns the current minter cache keys for debugging.
-pub async fn minter_cache(State(state): State<AppState>) -> Json<Vec<String>> {
+pub async fn minter_cache(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<String>>, (StatusCode, Json<ErrorResponse>)> {
     tracing::debug!("Retrieving minter cache keys");
-    let cache_keys = state.session_manager.get_minter_cache_keys().await;
-    Json(cache_keys)
+    match state.session_manager.get_minter_cache_keys().await {
+        Ok(cache_keys) => Ok(Json(cache_keys)),
+        Err(e) => {
+            tracing::error!("Failed to retrieve minter cache keys: {}", e);
+            let error_response = ErrorResponse::new(format!("Failed to get cache keys: {}", e));
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -186,7 +200,9 @@ mod tests {
         let state = create_test_state();
         let response = minter_cache(State(state)).await;
         // Response should be empty initially but valid
-        assert!(response.is_empty());
+        assert!(response.is_ok());
+        let cache_keys = response.unwrap().0; // Extract Json<Vec<String>>
+        assert!(cache_keys.is_empty());
     }
 
     #[test]

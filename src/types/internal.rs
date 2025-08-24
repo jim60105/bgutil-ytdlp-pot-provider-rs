@@ -123,7 +123,24 @@ impl TrustedScript {
     }
 }
 
-/// Token minter information
+/// Token minter cache entry matching TypeScript TokenMinter
+#[derive(Debug, Clone)]
+pub struct TokenMinterEntry {
+    /// Expiry time
+    pub expiry: DateTime<Utc>,
+    /// Integrity token for BotGuard
+    pub integrity_token: String,
+    /// Estimated TTL in seconds
+    pub estimated_ttl_secs: u32,
+    /// Mint refresh threshold
+    pub mint_refresh_threshold: u32,
+    /// Websafe fallback token
+    pub websafe_fallback_token: Option<String>,
+    /// Associated POT minter (placeholder for now)
+    pub minter: String, // TODO: Replace with actual WebPoMinter
+}
+
+/// Token minter information (legacy compatibility)
 #[derive(Debug, Clone)]
 pub struct TokenMinter {
     /// Expiry time
@@ -132,6 +149,37 @@ pub struct TokenMinter {
     pub integrity_token: String,
     /// Minter instance (placeholder for now)
     pub minter: String, // TODO: Replace with actual minter type
+}
+
+impl TokenMinterEntry {
+    /// Create a new token minter entry
+    pub fn new(
+        expiry: DateTime<Utc>,
+        integrity_token: impl Into<String>,
+        estimated_ttl_secs: u32,
+        mint_refresh_threshold: u32,
+        websafe_fallback_token: Option<String>,
+        minter: impl Into<String>,
+    ) -> Self {
+        Self {
+            expiry,
+            integrity_token: integrity_token.into(),
+            estimated_ttl_secs,
+            mint_refresh_threshold,
+            websafe_fallback_token,
+            minter: minter.into(),
+        }
+    }
+
+    /// Check if the minter has expired
+    pub fn is_expired(&self) -> bool {
+        Utc::now() > self.expiry
+    }
+
+    /// Get time remaining until expiration
+    pub fn time_until_expiry(&self) -> chrono::Duration {
+        self.expiry - Utc::now()
+    }
 }
 
 impl TokenMinter {
@@ -199,6 +247,12 @@ impl ClientInfo {
     }
 }
 
+impl Default for InnertubeContext {
+    fn default() -> Self {
+        Self::new(ClientInfo::default())
+    }
+}
+
 impl Default for ClientInfo {
     fn default() -> Self {
         Self::new()
@@ -258,6 +312,42 @@ mod tests {
         let minter = TokenMinter::new(past_time, "token", "minter");
 
         assert!(minter.is_expired());
+    }
+
+    #[test]
+    fn test_token_minter_entry_creation() {
+        let future_time = Utc::now() + Duration::hours(1);
+        let minter = TokenMinterEntry::new(
+            future_time,
+            "integrity_token_123",
+            3600,
+            300,
+            Some("websafe_token".to_string()),
+            "minter_instance",
+        );
+
+        assert_eq!(minter.integrity_token, "integrity_token_123");
+        assert_eq!(minter.estimated_ttl_secs, 3600);
+        assert_eq!(minter.mint_refresh_threshold, 300);
+        assert_eq!(
+            minter.websafe_fallback_token,
+            Some("websafe_token".to_string())
+        );
+        assert!(!minter.is_expired());
+    }
+
+    #[test]
+    fn test_token_minter_entry_expiration() {
+        let past_time = Utc::now() - Duration::hours(1);
+        let future_time = Utc::now() + Duration::hours(1);
+
+        let expired_minter = TokenMinterEntry::new(past_time, "token", 3600, 300, None, "minter");
+
+        let valid_minter = TokenMinterEntry::new(future_time, "token", 3600, 300, None, "minter");
+
+        assert!(expired_minter.is_expired());
+        assert!(!valid_minter.is_expired());
+        assert!(valid_minter.time_until_expiry().num_seconds() > 0);
     }
 
     #[test]
