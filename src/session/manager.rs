@@ -21,11 +21,11 @@
 //! # tokio_test::block_on(async {
 //! let settings = Settings::default();
 //! let manager = SessionManager::new(settings);
-//! 
+//!
 //! let request = PotRequest::new()
 //!     .with_content_binding("video_id_123");
 //!     
-//! let response = manager.get_pot_token(request).await?;
+//! let response = manager.generate_pot_token(&request).await?;
 //! println!("Generated POT token: {}", response.po_token);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! # });
@@ -150,7 +150,7 @@ impl SessionManager {
     /// # use bgutil_ytdlp_pot_provider::config::Settings;
     /// # tokio_test::block_on(async {
     /// let manager = SessionManager::new(Settings::default());
-    /// 
+    ///
     /// let request = PotRequest::new()
     ///     .with_content_binding("L3KvsX8hJss");
     ///     
