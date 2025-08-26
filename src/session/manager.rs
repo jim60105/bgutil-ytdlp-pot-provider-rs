@@ -1,7 +1,49 @@
-//! Session manager implementation
+//! # Session Management Module
 //!
-//! Core session management and POT token generation functionality.
-//! Based on TypeScript implementation in `server/src/session_manager.ts`
+//! This module provides the core session management functionality for the BgUtils POT Provider.
+//! It handles POT token lifecycle, caching, and coordination between different components.
+//!
+//! ## Architecture
+//!
+//! The session module is built around the [`SessionManager`] which orchestrates:
+//! - Token generation and validation
+//! - Cache management
+//! - BotGuard challenge resolution
+//! - Network communication
+//!
+//! ## Examples
+//!
+//! ```rust
+//! use bgutil_ytdlp_pot_provider::session::SessionManager;
+//! use bgutil_ytdlp_pot_provider::config::Settings;
+//! use bgutil_ytdlp_pot_provider::types::PotRequest;
+//!
+//! # tokio_test::block_on(async {
+//! let settings = Settings::default();
+//! let manager = SessionManager::new(settings);
+//!
+//! let request = PotRequest::new()
+//!     .with_content_binding("video_id_123");
+//!     
+//! let response = manager.generate_pot_token(&request).await?;
+//! println!("Generated POT token: {}", response.po_token);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # });
+//! ```
+//!
+//! ## Token Types
+//!
+//! The module supports different POT token contexts:
+//! - **GVS**: General visitor session tokens
+//! - **Player**: Video player-specific tokens  
+//! - **Subs**: Subtitle/captions tokens
+//!
+//! ## Caching Strategy
+//!
+//! Tokens are cached based on content binding and context to improve performance:
+//! - Default TTL: 6 hours
+//! - Cache key format: `{content_binding}:{context}`
+//! - Automatic expiration and cleanup
 
 use crate::{
     Result,
@@ -41,7 +83,24 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    /// Create a new session manager with the given settings
+    /// Creates a new session manager with the given configuration.
+    ///
+    /// Initializes HTTP client, cache storage, and configuration parameters
+    /// for POT token generation operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `settings` - Configuration settings for the session manager
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bgutil_ytdlp_pot_provider::session::SessionManager;
+    /// use bgutil_ytdlp_pot_provider::config::Settings;
+    ///
+    /// let settings = Settings::default();
+    /// let manager = SessionManager::new(settings);
+    /// ```
     pub fn new(settings: Settings) -> Self {
         let http_client = Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -58,9 +117,57 @@ impl SessionManager {
         }
     }
 
-    /// Generate a POT token based on the request
+    /// Generates a POT token for the given request.
     ///
-    /// Corresponds to TypeScript: `generatePoToken` method (L485-569)
+    /// This method handles the complete POT token lifecycle:
+    /// 1. Validates request parameters and extracts content binding
+    /// 2. Checks for valid cached tokens (unless bypassed)
+    /// 3. If no valid cache exists, initiates new token generation
+    /// 4. Caches the new token for future requests
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The POT request containing content binding and options
+    ///
+    /// # Returns
+    ///
+    /// Returns a [`PotResponse`] containing the POT token and metadata, or an error
+    /// if the operation fails.
+    ///
+    /// # Errors
+    ///
+    /// This method can return errors for:
+    /// - Invalid request parameters
+    /// - Network communication failures
+    /// - BotGuard challenge resolution failures
+    /// - Cache storage/retrieval issues
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bgutil_ytdlp_pot_provider::session::SessionManager;
+    /// # use bgutil_ytdlp_pot_provider::types::PotRequest;
+    /// # use bgutil_ytdlp_pot_provider::config::Settings;
+    /// # tokio_test::block_on(async {
+    /// let manager = SessionManager::new(Settings::default());
+    ///
+    /// let request = PotRequest::new()
+    ///     .with_content_binding("L3KvsX8hJss");
+    ///     
+    /// match manager.generate_pot_token(&request).await {
+    ///     Ok(response) => {
+    ///         println!("POT token: {}", response.po_token);
+    ///         println!("Expires at: {}", response.expires_at);
+    ///     }
+    ///     Err(e) => eprintln!("Failed to generate POT token: {}", e),
+    /// }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # });
+    /// ```
+    ///
+    /// # Implementation Notes
+    ///
+    /// Corresponds to TypeScript implementation: `generatePoToken` method (L485-569)
     pub async fn generate_pot_token(&self, request: &PotRequest) -> Result<PotResponse> {
         let content_binding = self.get_content_binding(request).await?;
 

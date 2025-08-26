@@ -1,165 +1,318 @@
-# BgUtils POT Provider
+# BgUtils POT Provider (Rust Implementation)
 
-> [!WARNING]
-> **🚧 Rust Rewrite In Progress 🚧**
->
-> I am currently rewriting this project from TypeScript to Rust for improved performance and reliability. During this transition period, some features may not work as expected. Please check back later for the stable Rust implementation.
+A high-performance YouTube POT (Proof-of-Origin Token) provider implemented in Rust, designed to help yt-dlp bypass the "Sign in to confirm you're not a bot" restrictions with improved performance and reliability.
 
 > [!CAUTION]
-> Providing a PO token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
+> Providing a POT token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
 
-[![Docker Image Version (tag)](https://img.shields.io/docker/v/brainicism/bgutil-ytdlp-pot-provider/latest?style=for-the-badge&label=docker)](https://hub.docker.com/r/brainicism/bgutil-ytdlp-pot-provider)
-[![GitHub Release](https://img.shields.io/github/v/release/Brainicism/bgutil-ytdlp-pot-provider?style=for-the-badge)](https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases)
-[![PyPI - Version](https://img.shields.io/pypi/v/bgutil-ytdlp-pot-provider?style=for-the-badge)](https://pypi.org/project/bgutil-ytdlp-pot-provider/)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/Brainicism/bgutil-ytdlp-pot-provider/test.yml?branch=master&label=Tests&style=for-the-badge)](https://github.com/Brainicism/bgutil-ytdlp-pot-provider/actions/workflows/test.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/jim60105/bgutil-ytdlp-pot-provider-rs?style=for-the-badge)](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/jim60105/bgutil-ytdlp-pot-provider-rs/build-test-audit-coverage.yml?branch=master&label=Tests&style=for-the-badge)](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/actions/workflows/build-test-audit-coverage.yml)
+[![Code Coverage](https://img.shields.io/codecov/c/github/jim60105/bgutil-ytdlp-pot-provider-rs?style=for-the-badge)](https://codecov.io/gh/jim60105/bgutil-ytdlp-pot-provider-rs)
+[![Crates.io](https://img.shields.io/crates/v/bgutil-ytdlp-pot-provider?style=for-the-badge)](https://crates.io/crates/bgutil-ytdlp-pot-provider)
 
-[Frequently Asked Questions](https://github.com/Brainicism/bgutil-ytdlp-pot-provider?tab=readme-ov-file#faq)
+This Rust implementation uses [LuanRT's BotGuard interfacing library](https://github.com/LuanRT/BgUtils) to generate POT tokens, helping bypass YouTube's bot detection when using yt-dlp from flagged IP addresses. See the _[PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)_ for technical details.
 
-A proof-of-origin token (POT) provider yt-dlp. We use [LuanRT's Botguard interfacing library](https://github.com/LuanRT/BgUtils) to generate the token.
-This is used to bypass the 'Sign in to confirm you're not a bot' message when invoking yt-dlp from an IP address flagged by YouTube. See _[PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)_ for more details.
+## Why Rust?
 
-The provider comes in two parts:
+This Rust rewrite offers significant improvements over the original TypeScript version:
 
-1. **Provider**: Two options -
-   - (a) An HTTP server that generates the POT, and has interfaces for the plugin to retrieve data from (easy setup + docker image provided)
-   - (b) A POT generation script, and has command line options for the plugin to invoke (needs to transpile the script)
-2. **Provider plugin**: uses POT plugin framework to retrieve data from the provider, allowing yt-dlp to simulate having passed the 'bot check'.
+- **🚀 Performance**: Sub-second token generation with optimized caching
+- **💾 Memory Efficiency**: Lower memory footprint and better resource management  
+- **🔒 Reliability**: Memory safety and robust error handling
+- **📦 Easy Deployment**: Single binary with no runtime dependencies
+- **🌐 Cross-Platform**: Native support for Linux, Windows, and macOS
+
+## Architecture Overview
+
+The system consists of two main components working together:
+
+```
+yt-dlp
+  ↓ (via POT plugin)
+Python Plugin (read-only)
+  ↓ HTTP API calls
+Rust POT Provider
+  ↓ BotGuard integration
+YouTube BotGuard API
+  ↓ returns POT Token
+yt-dlp (bypasses bot check)
+```
+
+### Core Components
+
+1. **Rust POT Provider** (this project): Two operation modes:
+   - **HTTP Server Mode** (`bgutil-pot-server`): Always-running REST API service (recommended)
+   - **Script Mode** (`bgutil-pot-generate`): Per-request command-line execution
+   
+2. **Python Plugin** (inherited from TypeScript version): Integrates with yt-dlp's POT framework to automatically fetch tokens from the provider.
 
 ## Installation
 
-### Base Requirements
+### Prerequisites
 
-1. Requires yt-dlp `2025.05.22` or above.
+1. **yt-dlp**: Version `2025.05.22` or above
+2. **System Requirements**: 
+   - Linux (x86_64), Windows (x86_64), or macOS (Intel/Apple Silicon)
+   - 512MB available memory
+   - Stable internet connection
 
-2. If using Docker image for option (a) for the provider, the Docker runtime is required.  
-   Otherwise, Node.js (>= 18) is required. You will also need git to clone the repository.
+### Step 1: Install the Rust POT Provider
 
-### 1. Set up the provider
+Choose one of the following installation methods:
 
-There are two options for the provider, an always running POT generation HTTP server, and a POT generation script invoked when needed. The HTTP server option is simpler, faster, and comes with a prebuilt Docker image. **You only need to choose one option.**
+#### Option A: Pre-compiled Binaries (Recommended)
 
-#### (a) HTTP Server Option
+Download the appropriate binary from [Releases](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest):
 
-The provider is a Node.js HTTP server. You have two options for running it: as a prebuilt docker image, or manually as a node application.
+```bash
+# Linux x86_64
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-linux-x86_64
+chmod +x bgutil-ytdlp-pot-provider-rs-linux-x86_64
 
-**Docker:**
+# macOS Intel
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-macos-x86_64
+chmod +x bgutil-ytdlp-pot-provider-rs-macos-x86_64
 
-```shell
-docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider
+# macOS Apple Silicon  
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-macos-aarch64
+chmod +x bgutil-ytdlp-pot-provider-rs-macos-aarch64
+
+# Windows (download .exe file)
+# https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-windows-x86_64.exe
 ```
 
-> [!IMPORTANT]
-> Note that the docker container's network is isolated from your local network by default. If you are using a local proxy server, it will not be accessible from within the container unless you pass `--net=host` as well.
+#### Option B: Install from crates.io
 
-**Native:**
-
-```shell
-# Replace 1.2.2 with the latest version or the one that matches the plugin
-git clone --single-branch --branch 1.2.2 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
-cd bgutil-ytdlp-pot-provider/server/
-npm install
-npx tsc
-node build/main.js
+```bash
+cargo install bgutil-ytdlp-pot-provider
 ```
 
-**Server Command Line Options**
+#### Option C: Build from Source
 
-- `-p, --port <PORT>`: The port on which the server listens.
+Requirements: Rust 1.85+ (edition 2024) and Cargo
 
-#### (b) Generation Script Option
+```bash
+git clone https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs.git
+cd bgutil-ytdlp-pot-provider-rs
+cargo build --release
 
-> [!IMPORTANT]
-> This method is not recommended for high concurrency usage. Every yt-dlp call incurs the overhead of spawning a new node process to run the script. This method also handles cache concurrency poorly.
-
-1. Transpile the generation script to Javascript:
-
-```shell
-# If you want to use this method without specifying `script_path` extractor argument
-# on each yt-dlp invocation, clone/extract the source code into your home directory.
-# Replace `~` with `%USERPROFILE%` if using Windows
-cd ~
-# Replace 1.2.2 with the latest version or the one that matches the plugin
-git clone --single-branch --branch 1.2.2 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
-cd bgutil-ytdlp-pot-provider/server/
-npm install
-npx tsc
+# Binaries will be available at:
+# target/release/bgutil-pot-server    (HTTP server mode)
+# target/release/bgutil-pot-generate  (script mode)
 ```
 
-2. Make sure `node` is available in your `PATH`.
+### Step 2: Install the yt-dlp Plugin
 
-### 2. Install the plugin
+#### Option A: PyPI Installation
 
-#### PyPI:
+If yt-dlp is installed via `pip` or `pipx`:
 
-If yt-dlp is installed through `pip` or `pipx`, you can install the plugin with the following:
-
-```shell
+```bash
 python3 -m pip install -U bgutil-ytdlp-pot-provider
 ```
 
-#### Manual:
+#### Option B: Manual Installation
 
-1. Download the latest release zip from [releases](https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases).
-2. Install it by placing the zip into one of the [plugin folders](https://github.com/yt-dlp/yt-dlp#installing-plugins).
-
+1. Download the latest plugin zip from [original project releases](https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases)
+2. Extract to one of the [yt-dlp plugin directories](https://github.com/yt-dlp/yt-dlp#installing-plugins)
 ## Usage
 
-If using option (a) HTTP Server for the provider, and the default IP/port number, you can use yt-dlp like normal 🙂.
+### HTTP Server Mode (Recommended)
 
-If you want to change the port number used by the provider server, use the `--port` option.
+The HTTP server mode provides the best performance and user experience.
 
-```shell
-node build/main.js --port 8080
+#### 1. Start the POT Provider Server
+
+```bash
+# Using default settings (binds to 127.0.0.1:4416)
+./bgutil-pot-server
+
+# Custom port
+./bgutil-pot-server --port 8080
+
+# Custom bind address (e.g., to accept connections from other machines)
+./bgutil-pot-server --bind 0.0.0.0 --port 4416
+
+# With verbose logging
+./bgutil-pot-server --verbose
 ```
 
-If changing the port or IP used for the provider server, pass it to yt-dlp via `base_url`
+**Server Command Line Options:**
+- `--bind <ADDRESS>`: Bind address (default: 127.0.0.1)
+- `--port <PORT>`: Listen port (default: 4416)
+- `--config <FILE>`: Configuration file path
+- `--log-level <LEVEL>`: Log level (error, warn, info, debug, trace)
+- `--verbose`: Enable verbose logging
 
-```shell
---extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:8080"
+#### 2. Use with yt-dlp
+
+Once the server is running, yt-dlp will automatically detect and use it:
+
+```bash
+# Standard usage - works automatically with default settings
+yt-dlp "https://www.youtube.com/watch?v=VIDEO_ID"
+
+# If using a custom port, specify the base URL
+yt-dlp --extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:8080" "VIDEO_URL"
+
+# If tokens stop working, try legacy mode
+yt-dlp --extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416;disable_innertube=1" "VIDEO_URL"
 ```
 
-If the tokens are no longer working, passing `disable_innertube=1` to yt-dlp restores the legacy behaviour and _might_ help
+### Script Mode
 
-```shell
---extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:8080;disable_innertube=1"
+For occasional use or environments where running a persistent service is not desired:
+
+#### 1. Generate POT Token Manually
+
+```bash
+# Generate token for a specific video
+./bgutil-pot-generate --content-binding "VIDEO_ID"
+
+# With proxy support
+./bgutil-pot-generate --content-binding "VIDEO_ID" --proxy "http://proxy.example.com:8080"
+
+# Bypass cache to force new token generation
+./bgutil-pot-generate --content-binding "VIDEO_ID" --bypass-cache
+
+# JSON output format
+./bgutil-pot-generate --content-binding "VIDEO_ID" --output json
 ```
 
-Note that when you pass multiple extractor arguments to one provider or extractor, they are to be separated by semicolons(`;`) as shown above. Multiple `--extractor-args` will **NOT** work for the same provier/extractor.
+#### 2. Use with yt-dlp
 
----
-
-If using option (b) script for the provider, with the default script location in your home directory (i.e: `~/bgutil-ytdlp-pot-provider` or `%USERPROFILE%\bgutil-ytdlp-pot-provider`), you can also use yt-dlp like normal.
-
-If you installed the script in a different location, pass it as the extractor argument `script_path` to `youtube-bgutilscript` for each yt-dlp call.
-
-```shell
---extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-ytdlp-pot-provider/server/build/generate_once.js"
+```bash
+# Specify the script path for yt-dlp integration
+yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot-generate" "VIDEO_URL"
 ```
 
----
+### Configuration
 
-We use a cache internally for all generated tokens when option (b) script is used. You can change the TTL (time to live) for the token cache with the environment variable `TOKEN_TTL` (in hours, defaults to 6). It's currently impossible to use different TTLs for different token contexts (can be `gvs`, `player`, or `subs`, see [Technical Details](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#technical-details) from the PO Token Guide).  
-That is, when using the script method, you can pass a `TOKEN_TTL` to yt-dlp to use a custom TTL for PO Tokens.
+Both modes support configuration via:
+1. Command line arguments (highest priority)
+2. Environment variables
+3. Configuration file (`~/.config/bgutil-pot-provider/config.toml`)
+4. Default values (lowest priority)
 
----
+**Example configuration file:**
+```toml
+[server]
+bind = "127.0.0.1"
+port = 4416
 
-If both methods are available for use, the option (a) HTTP server method will be prioritized.
+[logging]
+level = "info"
+
+[cache]
+ttl_hours = 6
+max_entries = 1000
+
+[network]
+connect_timeout = 30
+request_timeout = 60
+```
+
+### Proxy Support
+
+Both modes support proxy configuration:
+
+```bash
+# HTTP/HTTPS proxy
+--proxy "http://proxy.example.com:8080"
+
+# SOCKS5 proxy
+--proxy "socks5://proxy.example.com:1080"
+
+# Proxy with authentication
+--proxy "http://user:pass@proxy.example.com:8080"
+```
 
 ### Verification
 
-To check if the plugin was installed correctly, you should see the `bgutil` providers in yt-dlp's verbose output: `yt-dlp -v YOUTUBE_URL`.
+To verify the plugin installation, check yt-dlp's verbose output:
 
+```bash
+yt-dlp -v "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+You should see output similar to:
 ```
 [debug] [youtube] [pot] PO Token Providers: bgutil:http-1.2.2 (external), bgutil:script-1.2.2 (external)
 ```
 
-### FAQ
+## Troubleshooting
 
-#### I'm getting errors during `npm install` on Termux
+### Common Issues
 
-For provider versions >=1.2.0, you may have issues while installing the `canvas` dependency on Termux. The Termux environment is missing a `android_ndk_path` and two packages by default. Run the following commands to setup the dependencies correctly.
+#### POT tokens not working
+If tokens stop working, try the following in order:
 
-```shell
-mkdir ~/.gyp && echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
-pkg install libvips xorgproto
+1. **Restart the provider**: Stop and restart the HTTP server or regenerate tokens with `--bypass-cache`
+2. **Check your IP**: Your IP might be flagged. Try using a different network or proxy
+3. **Legacy mode**: Add `disable_innertube=1` to extractor arguments
+4. **Update software**: Ensure you're using the latest versions of both this provider and yt-dlp
+
+#### Connection issues
+```bash
+# Check if the server is running (HTTP mode)
+curl http://127.0.0.1:4416/ping
+
+# Test with verbose logging
+./bgutil-pot-server --verbose
+
+# Test script mode
+./bgutil-pot-generate --content-binding "test" --verbose
 ```
+
+#### Plugin not detected
+Verify the plugin installation:
+```bash
+yt-dlp -v "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 2>&1 | grep -i "pot"
+```
+
+Should show: `[debug] [youtube] [pot] PO Token Providers: bgutil:http-...`
+
+### Performance Tips
+
+- **Use HTTP server mode** for better performance and resource usage
+- **Configure appropriate cache TTL** (default 6 hours) based on your usage patterns  
+- **Use proxy rotation** if making many requests from the same IP
+- **Monitor memory usage** - the server typically uses <50MB RAM
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RUST_LOG` | Logging level | `info` |
+| `BGUTIL_CONFIG` | Config file path | `~/.config/bgutil-pot-provider/config.toml` |
+| `TOKEN_TTL` | Token cache TTL (hours) | `6` |
+
+## Contributing
+
+This project welcomes contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Setup
+
+```bash
+git clone https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs.git
+cd bgutil-ytdlp-pot-provider-rs
+
+# Install development dependencies
+cargo build
+
+# Run tests
+cargo nextest run
+
+# Run quality checks
+./scripts/quality_check.sh
+```
+
+## License
+
+This project is licensed under the GPL-3.0-or-later License. See [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- [LuanRT](https://github.com/LuanRT) for the [BgUtils library](https://github.com/LuanRT/BgUtils)
+- [Brainicism](https://github.com/Brainicism) for the [original TypeScript implementation](https://github.com/Brainicism/bgutil-ytdlp-pot-provider)
+- The [yt-dlp team](https://github.com/yt-dlp/yt-dlp) for the excellent POT provider framework
