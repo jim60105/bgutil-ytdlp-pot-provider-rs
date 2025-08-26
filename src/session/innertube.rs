@@ -24,6 +24,11 @@ impl InnertubeClient {
         }
     }
 
+    /// Create new Innertube client with custom base URL (for testing)
+    pub fn new_with_base_url(client: Client, base_url: String) -> Self {
+        Self { client, base_url }
+    }
+
     /// Generate visitor data
     ///
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
@@ -92,6 +97,101 @@ impl InnertubeClient {
 
         tracing::debug!("Successfully generated visitor data: {}", visitor_data);
         Ok(visitor_data.to_string())
+    }
+
+    /// Get challenge data from Innertube /att/get endpoint
+    /// 
+    /// Corresponds to TypeScript: POST to /youtubei/v1/att/get in getDescrambledChallenge method
+    pub async fn get_challenge(&self, context: &crate::types::InnertubeContext) -> crate::Result<crate::types::ChallengeData> {
+        use serde_json::json;
+        
+        tracing::debug!("Getting challenge from Innertube /att/get endpoint");
+        
+        let request_body = json!({
+            "context": context,
+            "engagementType": "ENGAGEMENT_TYPE_UNBOUND"
+        });
+
+        let response = self
+            .client
+            .post(format!("{}/att/get?prettyPrint=false", self.base_url))
+            .header("Content-Type", "application/json")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            )
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to send request to Innertube att/get: {}", e);
+                crate::Error::network(format!("Network request failed: {}", e))
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            tracing::error!("Innertube att/get returned error status: {}", status);
+            return Err(crate::Error::network(format!("API request failed with status: {}", status)));
+        }
+
+        let json_response: serde_json::Value = response.json().await.map_err(|e| {
+            tracing::error!("Failed to parse Innertube att/get response: {}", e);
+            crate::Error::network(format!("Failed to parse JSON response: {}", e))
+        })?;
+
+        // Extract bgChallenge from response
+        let bg_challenge = json_response
+            .get("bgChallenge")
+            .ok_or_else(|| {
+                tracing::error!("bgChallenge not found in Innertube att/get response");
+                crate::Error::challenge("innertube", "bgChallenge not found in API response")
+            })?;
+
+        // Parse the challenge data
+        let interpreter_url_value = bg_challenge
+            .get("interpreterUrl")
+            .and_then(|url| url.get("privateDoNotAccessOrElseTrustedResourceUrlWrappedValue"))
+            .and_then(|val| val.as_str())
+            .ok_or_else(|| {
+                crate::Error::challenge("innertube", "interpreterUrl not found in bgChallenge")
+            })?;
+
+        let interpreter_hash = bg_challenge
+            .get("interpreterHash")
+            .and_then(|hash| hash.as_str())
+            .ok_or_else(|| {
+                crate::Error::challenge("innertube", "interpreterHash not found in bgChallenge")
+            })?;
+
+        let program = bg_challenge
+            .get("program")
+            .and_then(|prog| prog.as_str())
+            .ok_or_else(|| {
+                crate::Error::challenge("innertube", "program not found in bgChallenge")
+            })?;
+
+        let global_name = bg_challenge
+            .get("globalName")
+            .and_then(|name| name.as_str())
+            .ok_or_else(|| {
+                crate::Error::challenge("innertube", "globalName not found in bgChallenge")
+            })?;
+
+        let client_experiments_state_blob = bg_challenge
+            .get("clientExperimentsStateBlob")
+            .and_then(|blob| blob.as_str())
+            .map(|s| s.to_string());
+
+        let challenge_data = crate::types::ChallengeData {
+            interpreter_url: crate::types::TrustedResourceUrl::new(interpreter_url_value),
+            interpreter_hash: interpreter_hash.to_string(),
+            program: program.to_string(),
+            global_name: global_name.to_string(),
+            client_experiments_state_blob,
+        };
+
+        tracing::debug!("Successfully retrieved challenge data from Innertube");
+        Ok(challenge_data)
     }
 
     /// Get client configuration for diagnostics

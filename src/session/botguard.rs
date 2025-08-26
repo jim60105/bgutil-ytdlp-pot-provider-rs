@@ -4,6 +4,7 @@
 //! including challenge descrambling and JavaScript VM execution.
 
 use crate::{Result, types::*};
+use base64::Engine;
 use deno_core::{FastString, JsRuntime, RuntimeOptions};
 use reqwest::Client;
 use serde_json::Value;
@@ -62,29 +63,91 @@ impl BotGuardManager {
     /// Get challenge from Innertube /att/get endpoint
     async fn get_challenge_from_innertube(
         &self,
-        _context: &InnertubeContext,
+        context: &InnertubeContext,
     ) -> Result<DescrambledChallenge> {
-        // TODO: Implement Innertube API call
-        // POST to https://www.youtube.com/youtubei/v1/att/get?prettyPrint=false
-        tracing::warn!("Innertube challenge retrieval not implemented yet");
-        Err(crate::Error::challenge(
-            "innertube",
-            "Innertube not implemented",
-        ))
+        tracing::info!("Attempting to get challenge from Innertube API");
+        
+        let innertube_client = crate::session::innertube::InnertubeClient::new(self.client.clone());
+        let challenge_data = innertube_client.get_challenge(context).await?;
+        
+        // Process the challenge data to create DescrambledChallenge
+        self.process_challenge_data(challenge_data).await
     }
 
-    /// Process challenge data from webpage
+    /// Process challenge data from webpage or Innertube
     async fn process_challenge_data(
         &self,
-        _challenge: ChallengeData,
+        challenge: ChallengeData,
     ) -> Result<DescrambledChallenge> {
-        // TODO: Implement challenge data processing
-        // Fetch interpreter JavaScript and create DescrambledChallenge
-        tracing::warn!("Challenge data processing not implemented yet");
-        Err(crate::Error::challenge(
-            "challenge_processing",
-            "Challenge processing not implemented",
-        ))
+        tracing::info!("Processing challenge data");
+        
+        // Decode challenge program from base64
+        let program_data = base64::engine::general_purpose::STANDARD
+            .decode(&challenge.program)
+            .map_err(|e| crate::Error::challenge(
+                "base64_decode",
+                &format!("Failed to decode challenge program: {}", e),
+            ))?;
+        
+        // Download interpreter JavaScript
+        let interpreter_js = self.download_interpreter(&challenge.interpreter_url).await?;
+        
+        // Create DescrambledChallenge
+        let descrambled = DescrambledChallenge {
+            message_id: None, // Will be set by caller if available
+            interpreter_javascript: TrustedScript::new(
+                interpreter_js,
+                challenge.interpreter_url.url(),
+            ),
+            interpreter_hash: challenge.interpreter_hash,
+            program: base64::engine::general_purpose::STANDARD.encode(&program_data),
+            global_name: challenge.global_name,
+            client_experiments_state_blob: challenge.client_experiments_state_blob,
+        };
+        
+        tracing::info!("Successfully processed challenge data");
+        Ok(descrambled)
+    }
+    
+    /// Download interpreter JavaScript from URL
+    async fn download_interpreter(&self, url: &TrustedResourceUrl) -> Result<String> {
+        tracing::info!("Downloading interpreter from: {}", url.url());
+        
+        // Handle URLs that start with // (protocol-relative)
+        let full_url = if url.url().starts_with("//") {
+            format!("https:{}", url.url())
+        } else {
+            url.url().to_string()
+        };
+        
+        let response = self.client
+            .get(&full_url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .send()
+            .await
+            .map_err(|e| crate::Error::network(format!("Failed to download interpreter: {}", e)))?;
+        
+        if !response.status().is_success() {
+            return Err(crate::Error::network(format!(
+                "HTTP {}: Failed to download interpreter", 
+                response.status()
+            )));
+        }
+        
+        let interpreter_js = response
+            .text()
+            .await
+            .map_err(|e| crate::Error::network(format!("Failed to read interpreter response: {}", e)))?;
+        
+        if interpreter_js.is_empty() {
+            return Err(crate::Error::challenge(
+                "interpreter_download",
+                "Downloaded interpreter is empty",
+            ));
+        }
+        
+        tracing::info!("Successfully downloaded interpreter ({} chars)", interpreter_js.len());
+        Ok(interpreter_js)
     }
 
     /// Get challenge from /Create endpoint
@@ -1023,6 +1086,122 @@ mod tests {
                 .to_string()
                 .contains("Invalid IntegrityToken response format")
         );
+    }
+
+    #[tokio::test]
+    async fn test_get_challenge_from_innertube_success() {
+        use wiremock::{MockServer, Mock, ResponseTemplate};
+        use wiremock::matchers::{method, path};
+        use serde_json::json;
+        
+        // Arrange
+        let mock_server = MockServer::start().await;
+        
+        let challenge_response = json!({
+            "bgChallenge": {
+                "interpreterUrl": {
+                    "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue": format!("{}/interpreter.js", mock_server.uri())
+                },
+                "interpreterHash": "abc123def456",
+                "program": "dGVzdF9jaGFsbGVuZ2U=",
+                "globalName": "_BGChallenge",
+                "clientExperimentsStateBlob": "test_blob"
+            }
+        });
+        
+        let interpreter_js = r#"
+            var _BGChallenge = function() {
+                return "test_challenge_function";
+            };
+        "#;
+        
+        Mock::given(method("POST"))
+            .and(path("/att/get"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(challenge_response))
+            .mount(&mock_server)
+            .await;
+            
+        Mock::given(method("GET"))
+            .and(path("/interpreter.js"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(interpreter_js))
+            .mount(&mock_server)
+            .await;
+        
+        // Create manager with mocked client and configure base URL to point to mock server
+        let client = Client::new();
+        let manager = BotGuardManager::new(client.clone(), "test_key".to_string());
+        
+        // Create a custom InnertubeClient that points to our mock server
+        let innertube_client = crate::session::innertube::InnertubeClient::new_with_base_url(
+            client,
+            mock_server.uri()
+        );
+        
+        let mut context = crate::types::InnertubeContext::default();
+        context.client.visitor_data = Some("test_visitor_data".to_string());
+        
+        // Get challenge directly from innertube client 
+        let challenge_data = innertube_client.get_challenge(&context).await.unwrap();
+        
+        // Process it through the manager
+        let result = manager.process_challenge_data(challenge_data).await;
+        
+        // Debug: Print error if it fails
+        if let Err(ref e) = result {
+            println!("Error: {:?}", e);
+        }
+        
+        // Assert - expect success now
+        assert!(result.is_ok());
+        let descrambled = result.unwrap();
+        assert_eq!(descrambled.global_name, "_BGChallenge");
+        assert_eq!(descrambled.interpreter_hash, "abc123def456");
+        assert!(!descrambled.interpreter_javascript.script().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_process_challenge_data_success() {
+        use wiremock::{MockServer, Mock, ResponseTemplate};
+        use wiremock::matchers::{method, path_regex};
+        
+        // Arrange
+        let mock_server = MockServer::start().await;
+        
+        let interpreter_js = r#"
+            var _BGChallenge = function() {
+                return "test_challenge_function";
+            };
+        "#;
+        
+        Mock::given(method("GET"))
+            .and(path_regex(r".*/interpreter\.js$"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(interpreter_js))
+            .mount(&mock_server)
+            .await;
+        
+        let client = Client::new();
+        let manager = BotGuardManager::new(client, "test_key".to_string());
+        
+        let challenge_data = crate::types::ChallengeData {
+            interpreter_url: crate::types::TrustedResourceUrl::new(
+                format!("{}/interpreter.js", mock_server.uri())
+            ),
+            interpreter_hash: "abc123".to_string(),
+            program: "dGVzdF9jaGFsbGVuZ2U=".to_string(), // base64 "test_challenge"
+            global_name: "_BGChallenge".to_string(),
+            client_experiments_state_blob: None,
+        };
+        
+        // Act - should now succeed with our implementation
+        let result = manager.process_challenge_data(challenge_data).await;
+        
+        // Assert - expect success now
+        assert!(result.is_ok());
+        let descrambled = result.unwrap();
+        assert_eq!(descrambled.global_name, "_BGChallenge");
+        assert_eq!(descrambled.interpreter_hash, "abc123");
+        assert!(!descrambled.interpreter_javascript.script().is_empty());
+        assert!(descrambled.interpreter_javascript.script().contains("test_challenge_function"));
     }
 
     #[tokio::test]
