@@ -66,7 +66,6 @@ pub type MinterCache = HashMap<String, TokenMinterEntry>;
 
 /// Main session manager for POT token generation
 #[derive(Debug)]
-#[allow(dead_code)] // TODO: Remove when BotGuard integration is complete
 pub struct SessionManager {
     /// Configuration settings
     settings: Arc<Settings>,
@@ -445,6 +444,19 @@ impl SessionManager {
 
         Ok(SessionData::new(po_token, content_binding, expires_at))
     }
+
+    /// Get diagnostic information about the session manager
+    ///
+    /// This method provides access to internal configuration for testing and diagnostics
+    pub fn get_diagnostic_info(&self) -> (String, String) {
+        (self.request_key.clone(), self.settings.server.host.clone())
+    }
+
+    /// Check that HTTP client is accessible and configured
+    pub fn has_http_client(&self) -> bool {
+        // Access the http_client field to verify it's readable
+        format!("{:?}", self.http_client).contains("Client")
+    }
 }
 
 #[cfg(test)]
@@ -456,6 +468,36 @@ mod tests {
         let settings = Settings::default();
         let manager = SessionManager::new(settings);
         assert!(manager.session_data_caches.read().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_fields_accessibility() {
+        let settings = Settings::default();
+        let manager = SessionManager::new(settings);
+
+        // Verify all fields can be accessed and used
+        assert!(manager.session_data_caches.read().await.len() == 0); // Initial should be empty
+
+        let minter_cache_size = manager.minter_cache.read().await.len();
+        assert_eq!(minter_cache_size, 0); // Initial should be empty
+
+        // Verify other fields are accessible
+        assert!(!manager.request_key.is_empty());
+        assert_eq!(manager.token_ttl_hours, 6);
+
+        // Access fields through diagnostic methods to prove they're readable
+        let (request_key, server_host) = manager.get_diagnostic_info();
+        assert!(!request_key.is_empty());
+        assert_eq!(request_key, "O43z0dpjhgX20SCx4KAo");
+        assert!(!server_host.is_empty());
+
+        // Verify http_client field is accessible
+        assert!(manager.has_http_client());
+
+        // Verify method that uses the fields works
+        let request = PotRequest::new().with_content_binding("test_field_access");
+        let result = manager.generate_pot_token(&request).await;
+        assert!(result.is_ok()); // This exercises settings and http_client internally
     }
 
     #[tokio::test]

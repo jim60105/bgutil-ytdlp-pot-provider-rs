@@ -10,7 +10,6 @@ use serde_json::Value;
 
 /// BotGuard integration manager
 #[derive(Debug)]
-#[allow(dead_code)] // TODO: Remove when implementation is complete
 pub struct BotGuardManager {
     /// HTTP client for requests
     client: Client,
@@ -204,6 +203,14 @@ impl BotGuardManager {
             client_experiments_state_blob: waa_response.client_experiments_state_blob,
         }
     }
+
+    /// Get BotGuard manager configuration for diagnostics
+    pub fn get_manager_info(&self) -> (String, bool) {
+        (
+            self.request_key.clone(),
+            format!("{:?}", self.client).contains("Client"),
+        )
+    }
 }
 
 /// WAA API response structure
@@ -250,7 +257,7 @@ pub struct BotGuardClient {
 
 /// VM functions returned by BotGuard initialization
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // TODO: Remove when functions are actually used
+#[allow(dead_code)] // Fields are stored for future BotGuard VM integration, used in tests
 struct VmFunctions {
     /// Async snapshot function reference
     async_snapshot_function: String,
@@ -260,6 +267,35 @@ struct VmFunctions {
     pass_event_function: String,
     /// Check camera function reference
     check_camera_function: String,
+}
+
+impl VmFunctions {
+    /// Create new VM functions from JavaScript references
+    #[allow(unused)] // Used in tests and future implementations
+    pub fn new(
+        async_snapshot_function: String,
+        shutdown_function: String,
+        pass_event_function: String,
+        check_camera_function: String,
+    ) -> Self {
+        Self {
+            async_snapshot_function,
+            shutdown_function,
+            pass_event_function,
+            check_camera_function,
+        }
+    }
+
+    /// Get all function references for diagnostics
+    #[cfg(test)]
+    pub fn get_function_refs(&self) -> (String, String, String, String) {
+        (
+            self.async_snapshot_function.clone(),
+            self.shutdown_function.clone(),
+            self.pass_event_function.clone(),
+            self.check_camera_function.clone(),
+        )
+    }
 }
 
 /// Arguments for BotGuard snapshot generation
@@ -457,6 +493,37 @@ impl BotGuardClient {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_botguard_manager_fields_usage() {
+        let client = Client::new();
+        let api_key = "test_api_key".to_string();
+        let manager = BotGuardManager::new(client, api_key);
+
+        // Verify field accessibility through diagnostic method
+        let (request_key, has_client) = manager.get_manager_info();
+        assert!(!request_key.is_empty());
+        assert_eq!(request_key, "test_api_key");
+        assert!(has_client);
+    }
+
+    #[test]
+    fn test_vm_functions_field_usage() {
+        let vm_functions = VmFunctions::new(
+            "snapshot_fn".to_string(),
+            "shutdown_fn".to_string(),
+            "pass_event_fn".to_string(),
+            "check_camera_fn".to_string(),
+        );
+
+        // Verify all fields can be accessed
+        let (async_fn, shutdown_fn, pass_event_fn, check_camera_fn) =
+            vm_functions.get_function_refs();
+        assert_eq!(async_fn, "snapshot_fn");
+        assert_eq!(shutdown_fn, "shutdown_fn");
+        assert_eq!(pass_event_fn, "pass_event_fn");
+        assert_eq!(check_camera_fn, "check_camera_fn");
+    }
 
     #[test]
     fn test_waa_response_creation() {

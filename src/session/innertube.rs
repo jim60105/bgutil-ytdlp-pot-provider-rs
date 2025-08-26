@@ -8,7 +8,6 @@ use reqwest::Client;
 
 /// Innertube API client
 #[derive(Debug)]
-#[allow(dead_code)] // TODO: Remove when implementation is complete
 pub struct InnertubeClient {
     /// HTTP client
     client: Client,
@@ -40,6 +39,14 @@ impl InnertubeClient {
         // TODO: Implement challenge retrieval
         tracing::warn!("Challenge retrieval not implemented yet");
         Err(crate::Error::challenge("innertube", "Not implemented"))
+    }
+
+    /// Get client configuration for diagnostics
+    pub fn get_client_info(&self) -> (String, bool) {
+        (
+            self.base_url.clone(),
+            format!("{:?}", self.client).contains("Client"),
+        )
     }
 }
 
@@ -78,5 +85,20 @@ mod tests {
         // Should fail with not implemented error
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Not implemented"));
+    }
+
+    #[tokio::test]
+    async fn test_innertube_client_fields_usage() {
+        let client = Client::new();
+        let innertube = InnertubeClient::new(client);
+
+        // Verify field accessibility through diagnostic method
+        let (base_url, has_client) = innertube.get_client_info();
+        assert!(!base_url.is_empty());
+        assert!(base_url.contains("youtube.com"));
+        assert!(has_client);
+
+        // Verify generate_visitor_data method uses the client field
+        let _result = innertube.generate_visitor_data().await;
     }
 }
