@@ -374,6 +374,8 @@ pub struct BotGuardClient {
     global_name: String,
     /// VM functions after initialization
     vm_functions: Option<VmFunctions>,
+    /// Interpreter JavaScript code for WebPoMinter integration
+    interpreter_javascript: String,
 }
 
 /// VM functions returned by BotGuard initialization
@@ -459,6 +461,7 @@ impl BotGuardClient {
             program: program.to_string(),
             global_name: global_name.to_string(),
             vm_functions: None,
+            interpreter_javascript: interpreter_javascript.to_string(),
         })
     }
 
@@ -477,8 +480,20 @@ impl BotGuardClient {
         // Create a proper runtime handle that integrates with the current JS runtime
         tracing::debug!("Creating runtime handle for WebPoMinter integration");
 
-        // Create a real runtime handle that can execute JavaScript
-        crate::session::webpo_minter::JsRuntimeHandle::new_with_runtime(&self.runtime)
+        // Create a runtime handle with the interpreter JavaScript preloaded
+        // This ensures that functions like webPoMinter are available in the WebPoMinter
+        match crate::session::webpo_minter::JsRuntimeHandle::new_with_preloaded_function(
+            &self.interpreter_javascript,
+        ) {
+            Ok(handle) => handle,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to create preloaded runtime handle: {}, falling back to basic handle",
+                    e
+                );
+                crate::session::webpo_minter::JsRuntimeHandle::new_with_runtime(&self.runtime)
+            }
+        }
     }
 
     /// Load the BotGuard program and initialize VM
