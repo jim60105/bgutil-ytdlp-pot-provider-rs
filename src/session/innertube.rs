@@ -3,7 +3,7 @@
 //! This module handles communication with YouTube's internal Innertube API
 //! to generate visitor data and retrieve challenge information.
 
-use crate::{Result, types::*};
+use crate::Result;
 use reqwest::Client;
 
 /// Innertube API client
@@ -92,20 +92,6 @@ impl InnertubeClient {
 
         tracing::debug!("Successfully generated visitor data: {}", visitor_data);
         Ok(visitor_data.to_string())
-    }
-
-    /// Get challenge from /att/get endpoint
-    ///
-    /// Note: Challenge retrieval from Innertube is handled separately by BotGuardManager.
-    /// This method is kept for API completeness but may not be needed immediately.
-    pub async fn get_challenge(&self, _context: &InnertubeContext) -> Result<ChallengeData> {
-        // TODO: Evaluate if this is needed separate from BotGuardManager's implementation
-        // Currently BotGuardManager handles Innertube challenge retrieval directly
-        tracing::debug!("Challenge retrieval through InnertubeClient not currently needed");
-        Err(crate::Error::challenge(
-            "innertube",
-            "Challenge retrieval handled by BotGuardManager",
-        ))
     }
 
     /// Get client configuration for diagnostics
@@ -248,23 +234,6 @@ mod tests {
         assert!(
             error_str.contains("Visitor data generation failed")
                 || error_str.contains("not found in API response")
-        );
-    }
-
-    #[tokio::test]
-    async fn test_get_challenge() {
-        let client = Client::new();
-        let innertube = InnertubeClient::new(client);
-
-        let context = InnertubeContext::default();
-        let result = innertube.get_challenge(&context).await;
-
-        // Should fail as challenge retrieval is handled by BotGuardManager
-        assert!(result.is_err());
-        let error_str = result.unwrap_err().to_string();
-        assert!(
-            error_str.contains("Challenge processing failed")
-                || error_str.contains("BotGuardManager")
         );
     }
 
