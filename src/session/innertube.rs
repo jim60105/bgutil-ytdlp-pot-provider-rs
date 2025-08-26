@@ -100,13 +100,16 @@ impl InnertubeClient {
     }
 
     /// Get challenge data from Innertube /att/get endpoint
-    /// 
+    ///
     /// Corresponds to TypeScript: POST to /youtubei/v1/att/get in getDescrambledChallenge method
-    pub async fn get_challenge(&self, context: &crate::types::InnertubeContext) -> crate::Result<crate::types::ChallengeData> {
+    pub async fn get_challenge(
+        &self,
+        context: &crate::types::InnertubeContext,
+    ) -> crate::Result<crate::types::ChallengeData> {
         use serde_json::json;
-        
+
         tracing::debug!("Getting challenge from Innertube /att/get endpoint");
-        
+
         let request_body = json!({
             "context": context,
             "engagementType": "ENGAGEMENT_TYPE_UNBOUND"
@@ -131,7 +134,10 @@ impl InnertubeClient {
         if !response.status().is_success() {
             let status = response.status();
             tracing::error!("Innertube att/get returned error status: {}", status);
-            return Err(crate::Error::network(format!("API request failed with status: {}", status)));
+            return Err(crate::Error::network(format!(
+                "API request failed with status: {}",
+                status
+            )));
         }
 
         let json_response: serde_json::Value = response.json().await.map_err(|e| {
@@ -140,12 +146,10 @@ impl InnertubeClient {
         })?;
 
         // Extract bgChallenge from response
-        let bg_challenge = json_response
-            .get("bgChallenge")
-            .ok_or_else(|| {
-                tracing::error!("bgChallenge not found in Innertube att/get response");
-                crate::Error::challenge("innertube", "bgChallenge not found in API response")
-            })?;
+        let bg_challenge = json_response.get("bgChallenge").ok_or_else(|| {
+            tracing::error!("bgChallenge not found in Innertube att/get response");
+            crate::Error::challenge("innertube", "bgChallenge not found in API response")
+        })?;
 
         // Parse the challenge data
         let interpreter_url_value = bg_challenge

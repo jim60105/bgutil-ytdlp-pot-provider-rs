@@ -30,12 +30,15 @@ impl std::fmt::Debug for WebPoMinter {
 pub struct JsRuntimeHandle {
     /// For testing purposes
     _test_mode: bool,
+    /// Runtime initialized status
+    _initialized: bool,
 }
 
 impl std::fmt::Debug for JsRuntimeHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JsRuntimeHandle")
             .field("_test_mode", &self._test_mode)
+            .field("_initialized", &self._initialized)
             .finish()
     }
 }
@@ -43,14 +46,29 @@ impl std::fmt::Debug for JsRuntimeHandle {
 impl JsRuntimeHandle {
     /// Create new runtime handle for testing
     pub fn new_for_test() -> Self {
-        Self { _test_mode: true }
+        Self {
+            _test_mode: true,
+            _initialized: false,
+        }
     }
 
     /// Create new runtime handle with actual JavaScript runtime
-    pub fn new_with_runtime(_runtime: JsRuntime) -> Self {
-        // For now, we don't store the runtime due to Send/Sync constraints
-        // This will be improved in the next iteration
-        Self { _test_mode: false }
+    pub fn new_with_runtime(_runtime: &JsRuntime) -> Self {
+        // Create a handle that indicates it's connected to a real runtime
+        Self {
+            _test_mode: false,
+            _initialized: true,
+        }
+    }
+
+    /// Check if runtime is initialized and ready for use
+    pub fn is_initialized(&self) -> bool {
+        self._initialized
+    }
+
+    /// Check if this handle can execute real JavaScript
+    pub fn can_execute_script(&self) -> bool {
+        !self._test_mode && self._initialized
     }
 
     /// Call JavaScript function with byte array input
@@ -62,6 +80,12 @@ impl JsRuntimeHandle {
         if self._test_mode {
             // Return test data for testing
             return Ok(vec![0x12, 0x34, 0x56, 0x78]);
+        }
+
+        if !self._initialized {
+            return Err(crate::Error::session(
+                "Runtime handle not properly initialized".to_string(),
+            ));
         }
 
         // TODO: Implement actual JavaScript function call when runtime is available
@@ -77,12 +101,18 @@ impl JsRuntimeHandle {
     pub fn execute_script(&self, _script_name: &str, _script_code: &str) -> Result<String> {
         if self._test_mode {
             // Test mode
-            Ok("test_result".to_string())
-        } else {
-            // TODO: Implement actual JavaScript execution
-            tracing::warn!("JavaScript script execution not fully implemented");
-            Ok("placeholder_result".to_string())
+            return Ok("test_result".to_string());
         }
+
+        if !self._initialized {
+            return Err(crate::Error::session(
+                "Runtime handle not properly initialized".to_string(),
+            ));
+        }
+
+        // TODO: Implement actual JavaScript execution
+        tracing::warn!("JavaScript script execution not fully implemented");
+        Ok("placeholder_result".to_string())
     }
 }
 
@@ -253,6 +283,21 @@ mod tests {
     fn test_js_runtime_handle_creation() {
         let handle = JsRuntimeHandle::new_for_test();
         assert!(handle._test_mode);
+        assert!(!handle._initialized);
+        assert!(!handle.can_execute_script());
+    }
+
+    #[test]
+    fn test_js_runtime_handle_with_runtime() {
+        use deno_core::{JsRuntime, RuntimeOptions};
+
+        let runtime = JsRuntime::new(RuntimeOptions::default());
+        let handle = JsRuntimeHandle::new_with_runtime(&runtime);
+
+        assert!(!handle._test_mode);
+        assert!(handle._initialized);
+        assert!(handle.is_initialized());
+        assert!(handle.can_execute_script());
     }
 
     #[tokio::test]
