@@ -50,7 +50,7 @@ yt-dlp (bypasses bot check)
 
 ### Prerequisites
 
-1. **yt-dlp**: Version `2024.05.22` or above
+1. **yt-dlp**: Version `2025.05.22` or above
 2. **System Requirements**: 
    - Linux (x86_64), Windows (x86_64), or macOS (Intel/Apple Silicon)
    - 512MB available memory
@@ -89,7 +89,7 @@ cargo install bgutil-ytdlp-pot-provider
 
 #### Option C: Build from Source
 
-Requirements: Rust 1.70+ and Cargo
+Requirements: Rust 1.85+ (edition 2024) and Cargo
 
 ```bash
 git clone https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs.git
