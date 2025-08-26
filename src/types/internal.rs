@@ -143,17 +143,6 @@ pub struct TokenMinterEntry {
     pub minter: WebPoMinter,
 }
 
-/// Token minter information (legacy compatibility)
-#[derive(Debug, Clone)]
-pub struct TokenMinter {
-    /// Expiry time
-    pub expiry: DateTime<Utc>,
-    /// Integrity token
-    pub integrity_token: String,
-    /// Minter instance (placeholder for now)
-    pub minter: String, // TODO: Replace with actual minter type
-}
-
 impl TokenMinterEntry {
     /// Create a new token minter entry
     pub fn new(
@@ -182,26 +171,6 @@ impl TokenMinterEntry {
     /// Get time remaining until expiration
     pub fn time_until_expiry(&self) -> chrono::Duration {
         self.expiry - Utc::now()
-    }
-}
-
-impl TokenMinter {
-    /// Create a new token minter
-    pub fn new(
-        expiry: DateTime<Utc>,
-        integrity_token: impl Into<String>,
-        minter: impl Into<String>,
-    ) -> Self {
-        Self {
-            expiry,
-            integrity_token: integrity_token.into(),
-            minter: minter.into(),
-        }
-    }
-
-    /// Check if the minter has expired
-    pub fn is_expired(&self) -> bool {
-        Utc::now() > self.expiry
     }
 }
 
@@ -300,21 +269,25 @@ mod tests {
     }
 
     #[test]
-    fn test_token_minter() {
+    fn test_token_minter_entry_creation_replacement() {
         let future_time = Utc::now() + Duration::hours(1);
-        let minter = TokenMinter::new(future_time, "integrity_token", "minter_instance");
+        let test_minter = create_test_webpo_minter();
 
-        assert!(!minter.is_expired());
-        assert_eq!(minter.integrity_token, "integrity_token");
-        assert_eq!(minter.minter, "minter_instance");
+        let entry =
+            TokenMinterEntry::new(future_time, "integrity_token", 3600, 300, None, test_minter);
+
+        assert!(!entry.is_expired());
+        assert_eq!(entry.integrity_token, "integrity_token");
     }
 
     #[test]
-    fn test_token_minter_expired() {
+    fn test_token_minter_entry_expiry_replacement() {
         let past_time = Utc::now() - Duration::hours(1);
-        let minter = TokenMinter::new(past_time, "token", "minter");
+        let test_minter = create_test_webpo_minter();
 
-        assert!(minter.is_expired());
+        let entry = TokenMinterEntry::new(past_time, "token", 3600, 300, None, test_minter);
+
+        assert!(entry.is_expired());
     }
 
     #[test]
