@@ -3,7 +3,7 @@
 //! This module handles communication with YouTube's internal Innertube API
 //! to generate visitor data and retrieve challenge information.
 
-use crate::{Result, types::*};
+use crate::Result;
 use reqwest::Client;
 
 /// Innertube API client
@@ -28,17 +28,70 @@ impl InnertubeClient {
     ///
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
     pub async fn generate_visitor_data(&self) -> Result<String> {
-        // TODO: Implement visitor data generation
-        // This should create an Innertube instance similar to the TypeScript version
-        tracing::warn!("Visitor data generation not implemented yet");
-        Ok("placeholder_visitor_data".to_string())
-    }
+        use serde_json::json;
 
-    /// Get challenge from /att/get endpoint
-    pub async fn get_challenge(&self, _context: &InnertubeContext) -> Result<ChallengeData> {
-        // TODO: Implement challenge retrieval
-        tracing::warn!("Challenge retrieval not implemented yet");
-        Err(crate::Error::challenge("innertube", "Not implemented"))
+        let request_body = json!({
+            "context": {
+                "client": {
+                    "clientName": "WEB",
+                    "clientVersion": "2.20240822.03.00",
+                    "hl": "en",
+                    "gl": "US"
+                }
+            },
+            "browseId": "FEwhat_to_watch"
+        });
+
+        let response = self
+            .client
+            .post(format!("{}/browse", self.base_url))
+            .header("Content-Type", "application/json")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            )
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to send request to Innertube API: {}", e);
+                crate::Error::VisitorData {
+                    reason: format!("Network request failed: {}", e),
+                    context: Some("innertube".to_string()),
+                }
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            tracing::error!("Innertube API returned error status: {}", status);
+            return Err(crate::Error::VisitorData {
+                reason: format!("API request failed with status: {}", status),
+                context: Some("innertube".to_string()),
+            });
+        }
+
+        let json_response: serde_json::Value = response.json().await.map_err(|e| {
+            tracing::error!("Failed to parse Innertube API response: {}", e);
+            crate::Error::VisitorData {
+                reason: format!("Failed to parse JSON response: {}", e),
+                context: Some("innertube".to_string()),
+            }
+        })?;
+
+        let visitor_data = json_response
+            .get("responseContext")
+            .and_then(|ctx| ctx.get("visitorData"))
+            .and_then(|data| data.as_str())
+            .ok_or_else(|| {
+                tracing::error!("Visitor data not found in Innertube API response");
+                crate::Error::VisitorData {
+                    reason: "Visitor data not found in API response".to_string(),
+                    context: Some("innertube".to_string()),
+                }
+            })?;
+
+        tracing::debug!("Successfully generated visitor data: {}", visitor_data);
+        Ok(visitor_data.to_string())
     }
 
     /// Get client configuration for diagnostics
@@ -53,6 +106,9 @@ impl InnertubeClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use wiremock::matchers::{body_json, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
     async fn test_innertube_client_creation() {
@@ -62,29 +118,123 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_generate_visitor_data() {
+    async fn test_generate_visitor_data_success() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let visitor_data = "CgtDZjBSbE5uZDJlQSij6bbFBjIKCgJVUxIEGgAgYA%3D%3D";
+
+        let expected_request = json!({
+            "context": {
+                "client": {
+                    "clientName": "WEB",
+                    "clientVersion": "2.20240822.03.00",
+                    "hl": "en",
+                    "gl": "US"
+                }
+            },
+            "browseId": "FEwhat_to_watch"
+        });
+
+        let mock_response = json!({
+            "responseContext": {
+                "visitorData": visitor_data
+            }
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/youtubei/v1/browse"))
+            .and(body_json(&expected_request))
+            .respond_with(ResponseTemplate::new(200).set_body_json(mock_response))
+            .mount(&mock_server)
+            .await;
+
         let client = Client::new();
-        let innertube = InnertubeClient::new(client);
+        let mut innertube = InnertubeClient::new(client);
+        innertube.base_url = mock_server.uri() + "/youtubei/v1";
 
+        // Act
         let result = innertube.generate_visitor_data().await;
-        assert!(result.is_ok());
 
-        let visitor_data = result.unwrap();
-        assert!(!visitor_data.is_empty());
-        assert_eq!(visitor_data, "placeholder_visitor_data");
+        // Assert
+        assert!(result.is_ok());
+        let generated_visitor_data = result.unwrap();
+        assert_eq!(generated_visitor_data, visitor_data);
+        assert!(!generated_visitor_data.is_empty());
     }
 
     #[tokio::test]
-    async fn test_get_challenge() {
+    async fn test_generate_visitor_data_network_error() {
+        // Arrange
         let client = Client::new();
-        let innertube = InnertubeClient::new(client);
+        let mut innertube = InnertubeClient::new(client);
+        innertube.base_url = "http://invalid-url-that-does-not-exist".to_string();
 
-        let context = InnertubeContext::default();
-        let result = innertube.get_challenge(&context).await;
+        // Act
+        let result = innertube.generate_visitor_data().await;
 
-        // Should fail with not implemented error
+        // Assert
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Not implemented"));
+        let error = result.unwrap_err();
+        // Check that it's a VisitorData error with network-related message
+        let error_str = error.to_string();
+        assert!(
+            error_str.contains("Visitor data generation failed")
+                || error_str.contains("Network request failed")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_generate_visitor_data_api_error() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/youtubei/v1/browse"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::new();
+        let mut innertube = InnertubeClient::new(client);
+        innertube.base_url = mock_server.uri() + "/youtubei/v1";
+
+        // Act
+        let result = innertube.generate_visitor_data().await;
+
+        // Assert
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_generate_visitor_data_missing_visitor_data() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+
+        let mock_response = json!({
+            "responseContext": {}
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/youtubei/v1/browse"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(mock_response))
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::new();
+        let mut innertube = InnertubeClient::new(client);
+        innertube.base_url = mock_server.uri() + "/youtubei/v1";
+
+        // Act
+        let result = innertube.generate_visitor_data().await;
+
+        // Assert
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        let error_str = error.to_string();
+        assert!(
+            error_str.contains("Visitor data generation failed")
+                || error_str.contains("not found in API response")
+        );
     }
 
     #[tokio::test]
@@ -97,8 +247,5 @@ mod tests {
         assert!(!base_url.is_empty());
         assert!(base_url.contains("youtube.com"));
         assert!(has_client);
-
-        // Verify generate_visitor_data method uses the client field
-        let _result = innertube.generate_visitor_data().await;
     }
 }
