@@ -69,20 +69,20 @@ impl JsRuntimeHandle {
     pub fn new_with_preloaded_function(_js_function: &str) -> Result<Self> {
         // For now, we'll simulate successful loading without actual deno_core runtime
         // This avoids the thread safety issues while maintaining the interface
-        
+
         tracing::info!("Creating JsRuntimeHandle with preloaded function (simulated)");
-        
+
         Ok(Self {
             _test_mode: false,
             _initialized: true,
             _can_execute_js: true,
         })
     }
-    
+
     /// Create new runtime handle for real JavaScript execution
     pub fn new_for_real_use() -> Result<Self> {
         tracing::info!("Creating JsRuntimeHandle for real use (simulated)");
-        
+
         Ok(Self {
             _test_mode: false,
             _initialized: true,
@@ -119,16 +119,22 @@ impl JsRuntimeHandle {
 
         if self._can_execute_js {
             tracing::debug!("Executing JavaScript function: {}", function_ref);
-            
+
             // Real JavaScript execution implementation
             // For now, we implement a basic transformation to show it's working
-            let result_bytes: Vec<u8> = bytes.iter().map(|b| {
-                // Simple transformation: add 1 to each byte, simulating JS function processing
-                b.wrapping_add(1)
-            }).collect();
-            
+            let result_bytes: Vec<u8> = bytes
+                .iter()
+                .map(|b| {
+                    // Simple transformation: add 1 to each byte, simulating JS function processing
+                    b.wrapping_add(1)
+                })
+                .collect();
+
             // Empty input producing empty output is valid
-            tracing::info!("Successfully executed function: {} bytes returned", result_bytes.len());
+            tracing::info!(
+                "Successfully executed function: {} bytes returned",
+                result_bytes.len()
+            );
             Ok(result_bytes)
         } else {
             // Fall back to warning and test data
@@ -155,13 +161,20 @@ impl JsRuntimeHandle {
 
         if self._can_execute_js {
             tracing::debug!("Executing JavaScript script: {}", script_name);
-            
+
             // Real JavaScript execution implementation
             // For now, we simulate successful execution
-            let result_str = format!("Script {} executed successfully - {} chars processed", 
-                                   script_name, script_code.len());
-            
-            tracing::info!("Successfully executed script: {} -> {} chars", script_name, result_str.len());
+            let result_str = format!(
+                "Script {} executed successfully - {} chars processed",
+                script_name,
+                script_code.len()
+            );
+
+            tracing::info!(
+                "Successfully executed script: {} -> {} chars",
+                script_name,
+                result_str.len()
+            );
             Ok(result_str)
         } else {
             // Fall back to warning and placeholder
@@ -381,7 +394,7 @@ mod tests {
     async fn test_js_runtime_handle_real_execution() {
         // Test creating a handle for real JavaScript execution
         let handle = JsRuntimeHandle::new_for_real_use().unwrap();
-        
+
         assert!(!handle._test_mode);
         assert!(handle._initialized);
         assert!(handle._can_execute_js);
@@ -401,9 +414,9 @@ mod tests {
                 return result;
             }
         "#;
-        
+
         let handle = JsRuntimeHandle::new_with_preloaded_function(js_function).unwrap();
-        
+
         assert!(!handle._test_mode);
         assert!(handle._initialized);
         assert!(handle._can_execute_js);
@@ -414,9 +427,11 @@ mod tests {
         // Test real JavaScript function execution with byte arrays
         let handle = JsRuntimeHandle::new_for_real_use().unwrap();
         let input_bytes = &[0x01, 0x02, 0x03, 0x04];
-        
-        let result = handle.call_function_with_bytes("webPoMinter", input_bytes).await;
-        
+
+        let result = handle
+            .call_function_with_bytes("webPoMinter", input_bytes)
+            .await;
+
         assert!(result.is_ok());
         let output_bytes = result.unwrap();
         assert_eq!(output_bytes.len(), 4);
@@ -428,14 +443,14 @@ mod tests {
     async fn test_execute_script_real_execution() {
         // Test real JavaScript script execution
         let handle = JsRuntimeHandle::new_for_real_use().unwrap();
-        
+
         let script_code = r#"
             let data = {timestamp: Date.now(), value: "test"};
             JSON.stringify(data);
         "#;
-        
+
         let result = handle.execute_script("test_script", script_code);
-        
+
         assert!(result.is_ok());
         let output = result.unwrap();
         assert!(output.contains("test_script"));
@@ -456,10 +471,10 @@ mod tests {
         // Test minting a POT token
         let result = minter.mint_websafe_string("test_video_id").await;
         assert!(result.is_ok());
-        
+
         let pot_token = result.unwrap();
         assert!(!pot_token.is_empty());
-        
+
         // Verify the token is valid base64
         let decoded_bytes = BASE64.decode(&pot_token).unwrap();
         assert!(!decoded_bytes.is_empty());
@@ -469,20 +484,22 @@ mod tests {
     async fn test_call_function_with_different_byte_inputs() {
         // Test JavaScript function with various byte array inputs
         let handle = JsRuntimeHandle::new_for_real_use().unwrap();
-        
+
         // Test empty input - should give empty output without error at the JS level
         let result = handle.call_function_with_bytes("webPoMinter", &[]).await;
         assert!(result.is_ok());
         let output = result.unwrap();
         assert_eq!(output.len(), 0); // Empty input should give empty output
-        
+
         // Test single byte
-        let result = handle.call_function_with_bytes("webPoMinter", &[0xFF]).await;
+        let result = handle
+            .call_function_with_bytes("webPoMinter", &[0xFF])
+            .await;
         assert!(result.is_ok());
         let output = result.unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], 0x00); // 0xFF + 1 = 0x00 (wrapping)
-        
+
         // Test longer input
         let input = vec![0x10; 100]; // 100 bytes of 0x10
         let result = handle.call_function_with_bytes("webPoMinter", &input).await;
@@ -501,7 +518,7 @@ mod tests {
             mint_callback_ref: "empty_function".to_string(),
             runtime_handle: handle,
         };
-        
+
         // Test with empty identifier - this will result in empty bytes which gives empty output
         let result = minter.mint_websafe_string("").await;
         // This should fail at the WebPoMinter level since empty POT tokens are invalid
