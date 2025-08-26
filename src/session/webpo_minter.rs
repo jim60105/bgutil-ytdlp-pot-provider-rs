@@ -235,9 +235,10 @@ impl JsRuntimeHandle {
             for i in 0..length {
                 let index_value = deno_core::v8::Integer::new(scope, i as i32);
                 if let Some(element) = array.get(scope, index_value.into())
-                    && let Some(number) = element.number_value(scope) {
-                        bytes.push(number as u8);
-                    }
+                    && let Some(number) = element.number_value(scope)
+                {
+                    bytes.push(number as u8);
+                }
             }
 
             Ok(bytes)
