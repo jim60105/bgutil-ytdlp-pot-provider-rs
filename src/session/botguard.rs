@@ -1223,7 +1223,7 @@ mod tests {
 
             // The handle should now be properly initialized, not in test mode
             assert!(!format!("{:?}", handle).contains("_test_mode: true"));
-            assert!(format!("{:?}", handle).contains("_initialized: true"));
+            assert!(format!("{:?}", handle).contains("_real_execution_enabled: true"));
         });
     }
 
