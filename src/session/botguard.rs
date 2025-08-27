@@ -380,7 +380,6 @@ pub struct BotGuardClient {
 
 /// VM functions returned by BotGuard initialization
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Fields are stored for future BotGuard VM integration, used in tests
 struct VmFunctions {
     /// Async snapshot function reference
     async_snapshot_function: String,
