@@ -64,9 +64,14 @@ pub type SessionDataCaches = HashMap<String, SessionData>;
 /// Minter cache type
 pub type MinterCache = HashMap<String, TokenMinterEntry>;
 
+/// Convenience type alias for SessionManager with default InnertubeClient
+pub type SessionManager = SessionManagerGeneric<crate::session::innertube::InnertubeClient>;
+
 /// Main session manager for POT token generation
 #[derive(Debug)]
-pub struct SessionManager {
+pub struct SessionManagerGeneric<
+    T: crate::session::innertube::InnertubeProvider = crate::session::innertube::InnertubeClient,
+> {
     /// Configuration settings
     settings: Arc<Settings>,
     /// HTTP client for requests
@@ -79,9 +84,11 @@ pub struct SessionManager {
     request_key: String,
     /// Token TTL in hours
     token_ttl_hours: i64,
+    /// Innertube provider for visitor data generation
+    innertube_provider: Arc<T>,
 }
 
-impl SessionManager {
+impl SessionManagerGeneric<crate::session::innertube::InnertubeClient> {
     /// Creates a new session manager with the given configuration.
     ///
     /// Initializes HTTP client, cache storage, and configuration parameters
@@ -106,6 +113,8 @@ impl SessionManager {
             .build()
             .expect("Failed to create HTTP client");
 
+        let innertube_client = crate::session::innertube::InnertubeClient::new(http_client.clone());
+
         Self {
             settings: Arc::new(settings),
             http_client,
@@ -113,9 +122,39 @@ impl SessionManager {
             minter_cache: RwLock::new(HashMap::new()),
             request_key: "O43z0dpjhgX20SCx4KAo".to_string(), // Hardcoded API key from TS
             token_ttl_hours: 6,                              // Default from TS implementation
+            innertube_provider: Arc::new(innertube_client),
         }
     }
+}
 
+#[cfg(test)]
+impl<P> SessionManagerGeneric<P>
+where
+    P: crate::session::innertube::InnertubeProvider + std::fmt::Debug,
+{
+    /// Creates a new session manager with a custom innertube provider for testing
+    pub fn new_with_provider(settings: Settings, provider: P) -> Self {
+        let http_client = Client::builder()
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .build()
+            .expect("Failed to create HTTP client");
+
+        Self {
+            settings: Arc::new(settings),
+            http_client,
+            session_data_caches: RwLock::new(HashMap::new()),
+            minter_cache: RwLock::new(HashMap::new()),
+            request_key: "O43z0dpjhgX20SCx4KAo".to_string(),
+            token_ttl_hours: 6,
+            innertube_provider: Arc::new(provider),
+        }
+    }
+}
+
+impl<T> SessionManagerGeneric<T>
+where
+    T: crate::session::innertube::InnertubeProvider + std::fmt::Debug,
+{
     /// Generates a POT token for the given request.
     ///
     /// This method handles the complete POT token lifecycle:
@@ -209,23 +248,10 @@ impl SessionManager {
     ///
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
     pub async fn generate_visitor_data(&self) -> Result<String> {
-        // For testing, return placeholder if in test mode or if we detect test environment
-        if cfg!(test)
-            || std::env::var("CARGO_NEXTEST").is_ok()
-            || std::env::var("CARGO_TEST").is_ok()
-        {
-            tracing::warn!("Visitor data generation using placeholder for tests");
-            return Ok("placeholder_visitor_data".to_string());
-        }
-
         tracing::info!("Generating visitor data using Innertube API");
 
-        // Create Innertube client for visitor data generation
-        let innertube_client =
-            crate::session::innertube::InnertubeClient::new(self.http_client.clone());
-
-        // Generate visitor data using Innertube
-        let visitor_data = innertube_client.generate_visitor_data().await?;
+        // Use the injected Innertube provider
+        let visitor_data = self.innertube_provider.generate_visitor_data().await?;
 
         if visitor_data.is_empty() {
             return Err(crate::Error::VisitorData {
@@ -602,6 +628,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_generate_visitor_data_with_mock() {
+        // Create a mock provider
+        #[derive(Debug)]
+        struct MockInnertubeProvider;
+
+        #[async_trait::async_trait]
+        impl crate::session::innertube::InnertubeProvider for MockInnertubeProvider {
+            async fn generate_visitor_data(&self) -> Result<String> {
+                Ok("mock_visitor_data_12345".to_string())
+            }
+
+            async fn get_challenge(
+                &self,
+                _context: &crate::types::InnertubeContext,
+            ) -> crate::Result<crate::types::ChallengeData> {
+                // Mock implementation
+                Ok(crate::types::ChallengeData {
+                    interpreter_url: crate::types::TrustedResourceUrl::new("//mock.url"),
+                    interpreter_hash: "mock_hash".to_string(),
+                    program: "mock_program".to_string(),
+                    global_name: "mockGlobal".to_string(),
+                    client_experiments_state_blob: Some("mock_blob".to_string()),
+                })
+            }
+        }
+
+        let mock_provider = MockInnertubeProvider;
+        let settings = Settings::default();
+        let manager = SessionManagerGeneric::new_with_provider(settings, mock_provider);
+
+        let visitor_data = manager.generate_visitor_data().await.unwrap();
+        assert_eq!(visitor_data, "mock_visitor_data_12345");
+    }
+
+    #[tokio::test]
     async fn test_token_minter_cache() {
         let settings = Settings::default();
         let manager = SessionManager::new(settings);
@@ -637,8 +698,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_content_binding_generation() {
+        // Create a mock provider that returns known visitor data
+        #[derive(Debug)]
+        struct TestVisitorProvider;
+
+        #[async_trait::async_trait]
+        impl crate::session::innertube::InnertubeProvider for TestVisitorProvider {
+            async fn generate_visitor_data(&self) -> Result<String> {
+                Ok("test_visitor_data_from_mock".to_string())
+            }
+
+            async fn get_challenge(
+                &self,
+                _context: &crate::types::InnertubeContext,
+            ) -> crate::Result<crate::types::ChallengeData> {
+                Ok(crate::types::ChallengeData {
+                    interpreter_url: crate::types::TrustedResourceUrl::new("//test.url"),
+                    interpreter_hash: "test_hash".to_string(),
+                    program: "test_program".to_string(),
+                    global_name: "testGlobal".to_string(),
+                    client_experiments_state_blob: Some("test_blob".to_string()),
+                })
+            }
+        }
+
+        let mock_provider = TestVisitorProvider;
         let settings = Settings::default();
-        let manager = SessionManager::new(settings);
+        let manager = SessionManagerGeneric::new_with_provider(settings, mock_provider);
 
         // Request without content binding should generate visitor data
         let request = PotRequest::new();
@@ -646,7 +732,7 @@ mod tests {
 
         // Should use generated visitor data as content binding
         assert!(!response.content_binding.is_empty());
-        assert_eq!(response.content_binding, "placeholder_visitor_data");
+        assert_eq!(response.content_binding, "test_visitor_data_from_mock");
     }
 
     #[tokio::test]

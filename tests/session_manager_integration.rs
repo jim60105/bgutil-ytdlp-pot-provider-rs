@@ -1,6 +1,12 @@
-//! Phase 6 Integration Tests
+//! Session Manager Integration Tests
 //!
-//! Comprehensive tests for final SessionManager integration and TODO completion.
+//! Comprehensive integration tests for the SessionManager including:
+//! - POT token generation workflow
+//! - Real Innertube API integration
+//! - Cache management and invalidation
+//! - Error handling and recovery
+//! - Concurrent request handling
+//! - End-to-end system integration
 
 use bgutil_ytdlp_pot_provider::{config::Settings, session::SessionManager, types::*};
 use std::sync::Arc;

@@ -3,7 +3,7 @@
 //! This module handles the interaction with Google's BotGuard system,
 //! including challenge descrambling and JavaScript VM execution.
 
-use crate::{Result, types::*};
+use crate::{Result, session::innertube::InnertubeProvider, types::*};
 use base64::Engine;
 use deno_core::{FastString, JsRuntime, RuntimeOptions};
 use reqwest::Client;
@@ -379,8 +379,18 @@ pub struct BotGuardClient {
 }
 
 /// VM functions returned by BotGuard initialization
+///
+/// Based on analysis of the TypeScript implementation, these specific function references
+/// are not directly used in the current bgutils-js integration pattern. The TypeScript
+/// implementation uses:
+/// - `BG.BotGuardClient.create()` for client creation
+/// - `bgClient.snapshot()` for snapshot generation  
+/// - `BG.WebPoMinter.create()` for minter creation
+///
+/// This struct remains for potential future use or compatibility with different
+/// BotGuard integration patterns, but is not currently required for basic functionality.
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // TODO: Remove when BotGuard VM integration is complete
+#[allow(dead_code)]
 struct VmFunctions {
     /// Async snapshot function reference
     async_snapshot_function: String,
@@ -394,7 +404,9 @@ struct VmFunctions {
 
 impl VmFunctions {
     /// Create new VM functions from JavaScript references
-    #[allow(unused)] // Used in tests and future implementations
+    ///
+    /// Currently unused in main implementation but preserved for compatibility
+    #[allow(dead_code)]
     pub fn new(
         async_snapshot_function: String,
         shutdown_function: String,
