@@ -4,145 +4,139 @@ This document provides comprehensive reference for the BgUtils POT Provider Rust
 
 ## HTTP API Endpoints
 
-### POST /api/v1/pot
+### POST /get_pot
 
 Generate or retrieve a cached POT token.
 
 **Request Format:**
 ```json
 {
-  "visitor_data": "CgtVa2F6cWl6blE4QSi5",
   "content_binding": "L3KvsX8hJss",
-  "po_token_context": "gvs"
+  "proxy": "http://proxy.example.com:8080",
+  "bypass_cache": false,
+  "source_address": "192.168.1.100",
+  "disable_tls_verification": false,
+  "disable_innertube": false
 }
 ```
 
 **Request Fields:**
-- `visitor_data` (string): YouTube visitor data identifier
-- `content_binding` (string): Video ID or content identifier  
-- `po_token_context` (string, optional): Token context type ("gvs", "player", "subs"). Default: "gvs"
+- `content_binding` (string, optional): Video ID or content identifier
+- `proxy` (string, optional): Proxy server URL  
+- `bypass_cache` (boolean, optional): Force new token generation, bypassing cache
+- `source_address` (string, optional): Source IP address for outbound connections
+- `disable_tls_verification` (boolean, optional): Disable TLS certificate verification
+- `disable_innertube` (boolean, optional): Disable Innertube API usage
+- `challenge` (string, optional): Challenge parameter for token generation
+- `innertube_context` (object, optional): Innertube context for API calls
 
 **Response Format:**
 ```json
 {
-  "token": "QUFFLUhqbXI3OEFmTWowWWZTUFFkR3hqV1Y5Q2JFeFVFZ3xBQ3Jtc0tqVlFEUmhOelJrWVRLcFd3T1Q2aVRxZEhP",
-  "expires_at": "2024-08-25T12:00:00Z",
-  "content_binding": "L3KvsX8hJss",
-  "context": "gvs"
+  "poToken": "QUFFLUhqbXI3OEFmTWowWWZTUFFkR3hqV1Y5Q2JFeFVFZ3xBQ3Jtc0tqVlFEUmhOelJrWVRLcFd3T1Q2aVRxZEhP",
+  "expiresAt": "2024-08-25T12:00:00Z",
+  "contentBinding": "L3KvsX8hJss"
 }
 ```
 
 **Response Fields:**
-- `token` (string): The generated POT token
-- `expires_at` (string): ISO 8601 timestamp when token expires
-- `content_binding` (string): Echo of the request content binding
-- `context` (string): Token context type
+- `poToken` (string): The generated POT token
+- `expiresAt` (string): ISO 8601 timestamp when token expires
+- `contentBinding` (string): Content binding used for token generation
 
 **Error Response:**
 ```json
 {
-  "error": "Invalid visitor data format",
-  "category": "validation",
-  "details": {
-    "field": "visitor_data",
-    "message": "Visitor data must be valid base64"
-  }
+  "error": "data_sync_id is deprecated, use content_binding instead"
 }
 ```
 
 **Status Codes:**
 - `200 OK`: Token generated successfully
-- `400 Bad Request`: Invalid request parameters
-- `429 Too Many Requests`: Rate limit exceeded
+- `400 Bad Request`: Invalid request parameters (e.g., deprecated fields)
 - `500 Internal Server Error`: Server error during token generation
 
 **Example Request:**
 ```bash
-curl -X POST http://127.0.0.1:4416/api/v1/pot \
+curl -X POST http://127.0.0.1:4416/get_pot \
   -H "Content-Type: application/json" \
   -d '{
-    "visitor_data": "CgtVa2F6cWl6blE4QSi5",
     "content_binding": "L3KvsX8hJss",
-    "po_token_context": "gvs"
+    "bypass_cache": false
   }'
 ```
 
-### GET /health
+### GET /ping
 
-Health check endpoint for monitoring and load balancers.
+Health check endpoint for basic connectivity testing.
 
 **Response Format:**
 ```json
 {
-  "status": "healthy",
-  "version": "0.1.0",
-  "uptime_seconds": 3600,
-  "cache_entries": 42
+  "server_uptime": 3600,
+  "version": "0.1.0"
 }
 ```
 
 **Response Fields:**
-- `status` (string): Service health status ("healthy", "degraded", "unhealthy")
+- `server_uptime` (number): Server uptime in seconds
 - `version` (string): Application version
-- `uptime_seconds` (number): Server uptime in seconds
-- `cache_entries` (number): Number of cached tokens
 
 **Status Codes:**
 - `200 OK`: Service is healthy
-- `503 Service Unavailable`: Service is unhealthy
 
-### GET /ping
+### POST /invalidate_caches
 
-Simple ping endpoint for basic connectivity testing.
+Invalidate all cached tokens and sessions.
+
+**Request:** No request body required.
+
+**Response:** Returns HTTP 204 No Content on success.
+
+**Status Codes:**
+- `204 No Content`: Caches invalidated successfully
+- `500 Internal Server Error`: Failed to invalidate caches
+
+**Example Request:**
+```bash
+curl -X POST http://127.0.0.1:4416/invalidate_caches
+```
+
+### POST /invalidate_it
+
+Invalidate integrity tokens to force regeneration.
+
+**Request:** No request body required.
+
+**Response:** Returns HTTP 204 No Content on success.
+
+**Status Codes:**
+- `204 No Content`: Integrity tokens invalidated successfully
+- `500 Internal Server Error`: Failed to invalidate integrity tokens
+
+**Example Request:**
+```bash
+curl -X POST http://127.0.0.1:4416/invalidate_it
+```
+
+### GET /minter_cache
+
+Get minter cache keys for debugging purposes.
 
 **Response Format:**
 ```json
-{
-  "message": "pong",
-  "timestamp": "2024-08-25T12:00:00Z"
-}
+["cache_key_1", "cache_key_2", "cache_key_3"]
 ```
 
-### POST /api/v1/invalidate
+**Response:** Returns an array of cache key strings.
 
-Invalidate cached tokens for specific content.
+**Status Codes:**
+- `200 OK`: Cache keys retrieved successfully
+- `500 Internal Server Error`: Failed to retrieve cache keys
 
-**Request Format:**
-```json
-{
-  "content_binding": "L3KvsX8hJss",
-  "invalidation_type": "content"
-}
-```
-
-**Request Fields:**
-- `content_binding` (string): Content binding to invalidate
-- `invalidation_type` (string): Type of invalidation ("content", "all")
-
-**Response Format:**
-```json
-{
-  "message": "Cache invalidated successfully",
-  "invalidated_entries": 3
-}
-```
-
-### GET /api/v1/cache
-
-Get minter cache information.
-
-**Response Format:**
-```json
-{
-  "cache_size": 42,
-  "cache_entries": [
-    {
-      "content_binding": "L3KvsX8hJss",
-      "context": "gvs",
-      "expires_at": "2024-08-25T12:00:00Z"
-    }
-  ]
-}
+**Example Request:**
+```bash
+curl http://127.0.0.1:4416/minter_cache
 ```
 
 ## CLI Interface
@@ -186,24 +180,22 @@ Script mode for single POT token generation.
 
 **Usage:**
 ```bash
-bgutil-pot-generate [OPTIONS] --content-binding <CONTENT_BINDING>
+bgutil-pot-generate [OPTIONS]
 ```
 
-**Required Options:**
-- `--content-binding <CONTENT_BINDING>`: Video ID or content identifier
-
-**Optional Options:**
-- `--po-token-context <CONTEXT>`: Token context (gvs, player, subs, default: gvs)
-- `--output <FORMAT>`: Output format (json, token-only, default: json)
-- `--proxy <PROXY_URL>`: HTTP/SOCKS proxy URL
-- `--source-address <ADDRESS>`: Source IP address for outbound connections
-- `--bypass-cache`: Force new token generation, bypass cache
+**Options:**
+- `-c, --content-binding <CONTENT_BINDING>`: Content binding (video ID, visitor data, etc.)
+- `-v, --visitor-data <VISITOR_DATA>`: Visitor data (DEPRECATED: use --content-binding instead)
+- `-d, --data-sync-id <DATA_SYNC_ID>`: Data sync ID (DEPRECATED: use --content-binding instead)
+- `-p, --proxy <PROXY>`: Proxy server URL (http://host:port, socks5://host:port, etc.)
+- `-b, --bypass-cache`: Bypass cache and force new token generation
+- `-s, --source-address <SOURCE_ADDRESS>`: Source IP address for outbound connections
 - `--disable-tls-verification`: Disable TLS certificate verification
-- `--verbose`: Enable verbose logging
 - `--version`: Show version information
-- `--help`: Show help information
+- `--verbose`: Enable verbose logging
+- `-h, --help`: Print help
 
-**Output Formats:**
+**Output Format:**
 
 **JSON Format (default):**
 ```json
@@ -214,9 +206,9 @@ bgutil-pot-generate [OPTIONS] --content-binding <CONTENT_BINDING>
 }
 ```
 
-**Token-only Format:**
-```
-QUFFLUhqbXI3OEFmTWowWWZTUFFkR3hqV1Y5Q2JFeFVFZ3xBQ3Jtc0tqVlFEUmhOelJrWVRLcFd3T1E2aVRxZEhP
+**Error Output:**
+```json
+{}
 ```
 
 **Examples:**
@@ -224,27 +216,26 @@ QUFFLUhqbXI3OEFmTWowWWZTUFFkR3hqV1Y5Q2JFeFVFZ3xBQ3Jtc0tqVlFEUmhOelJrWVRLcFd3T1E2
 # Basic token generation
 bgutil-pot-generate --content-binding "L3KvsX8hJss"
 
-# With specific context
-bgutil-pot-generate --content-binding "L3KvsX8hJss" --po-token-context "player"
-
-# Token-only output
-bgutil-pot-generate --content-binding "L3KvsX8hJss" --output token-only
-
 # With proxy
 bgutil-pot-generate --content-binding "L3KvsX8hJss" --proxy "http://proxy.example.com:8080"
 
 # Bypass cache for fresh token
 bgutil-pot-generate --content-binding "L3KvsX8hJss" --bypass-cache
 
+# With source address
+bgutil-pot-generate --content-binding "L3KvsX8hJss" --source-address "192.168.1.100"
+
 # Verbose logging
 bgutil-pot-generate --content-binding "L3KvsX8hJss" --verbose
+
+# Using deprecated parameters (will show error and exit)
+bgutil-pot-generate --visitor-data "CgtVa2F6cWl6blE4QTi5"
+bgutil-pot-generate --data-sync-id "abc123"
 ```
 
 **Exit Codes:**
 - `0`: Success
-- `1`: Invalid arguments or configuration error
-- `2`: Network error or API failure
-- `3`: Token generation failure
+- `1`: Invalid arguments, deprecated parameters, or token generation failure
 
 ## Configuration File Format
 
@@ -430,7 +421,7 @@ Separate multiple arguments with semicolons:
 ```bash
 # Example retry with curl
 for i in {1..3}; do
-  if curl -f http://127.0.0.1:4416/api/v1/pot -d "$request_body"; then
+  if curl -f http://127.0.0.1:4416/get_pot -d "$request_body"; then
     break
   fi
   sleep $((i * 2))  # Exponential backoff
