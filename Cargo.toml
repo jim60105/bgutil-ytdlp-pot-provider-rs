@@ -85,6 +85,9 @@ deno_core = "0.240"
 # Base64 encoding/decoding
 base64 = "0.21"
 
+# Async trait support for testing
+async-trait = "0.1"
+
 [dev-dependencies]
 # Testing frameworks and utilities
 tokio-test = "0.4"

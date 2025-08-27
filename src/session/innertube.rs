@@ -6,6 +6,19 @@
 use crate::Result;
 use reqwest::Client;
 
+/// Trait for Innertube API operations to enable testing with mocks
+#[async_trait::async_trait]
+pub trait InnertubeProvider {
+    /// Generate visitor data from YouTube's Innertube API
+    async fn generate_visitor_data(&self) -> Result<String>;
+
+    /// Get challenge data from Innertube /att/get endpoint
+    async fn get_challenge(
+        &self,
+        context: &crate::types::InnertubeContext,
+    ) -> crate::Result<crate::types::ChallengeData>;
+}
+
 /// Innertube API client
 #[derive(Debug)]
 pub struct InnertubeClient {
@@ -28,11 +41,14 @@ impl InnertubeClient {
     pub fn new_with_base_url(client: Client, base_url: String) -> Self {
         Self { client, base_url }
     }
+}
 
+#[async_trait::async_trait]
+impl InnertubeProvider for InnertubeClient {
     /// Generate visitor data
     ///
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
-    pub async fn generate_visitor_data(&self) -> Result<String> {
+    async fn generate_visitor_data(&self) -> Result<String> {
         use serde_json::json;
 
         let request_body = json!({
@@ -102,7 +118,7 @@ impl InnertubeClient {
     /// Get challenge data from Innertube /att/get endpoint
     ///
     /// Corresponds to TypeScript: POST to /youtubei/v1/att/get in getDescrambledChallenge method
-    pub async fn get_challenge(
+    async fn get_challenge(
         &self,
         context: &crate::types::InnertubeContext,
     ) -> crate::Result<crate::types::ChallengeData> {
@@ -197,7 +213,9 @@ impl InnertubeClient {
         tracing::debug!("Successfully retrieved challenge data from Innertube");
         Ok(challenge_data)
     }
+}
 
+impl InnertubeClient {
     /// Get client configuration for diagnostics
     pub fn get_client_info(&self) -> (String, bool) {
         (

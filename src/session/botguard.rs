@@ -3,7 +3,7 @@
 //! This module handles the interaction with Google's BotGuard system,
 //! including challenge descrambling and JavaScript VM execution.
 
-use crate::{Result, types::*};
+use crate::{Result, session::innertube::InnertubeProvider, types::*};
 use base64::Engine;
 use deno_core::{FastString, JsRuntime, RuntimeOptions};
 use reqwest::Client;
@@ -372,53 +372,10 @@ pub struct BotGuardClient {
     program: String,
     /// Global VM name
     global_name: String,
-    /// VM functions after initialization
-    vm_functions: Option<VmFunctions>,
+    /// Whether the VM has been initialized
+    initialized: bool,
     /// Interpreter JavaScript code for WebPoMinter integration
     interpreter_javascript: String,
-}
-
-/// VM functions returned by BotGuard initialization
-#[derive(Debug, Clone)]
-#[allow(dead_code)] // Fields are stored for future BotGuard VM integration, used in tests
-struct VmFunctions {
-    /// Async snapshot function reference
-    async_snapshot_function: String,
-    /// Shutdown function reference
-    shutdown_function: String,
-    /// Pass event function reference
-    pass_event_function: String,
-    /// Check camera function reference
-    check_camera_function: String,
-}
-
-impl VmFunctions {
-    /// Create new VM functions from JavaScript references
-    #[allow(unused)] // Used in tests and future implementations
-    pub fn new(
-        async_snapshot_function: String,
-        shutdown_function: String,
-        pass_event_function: String,
-        check_camera_function: String,
-    ) -> Self {
-        Self {
-            async_snapshot_function,
-            shutdown_function,
-            pass_event_function,
-            check_camera_function,
-        }
-    }
-
-    /// Get all function references for diagnostics
-    #[cfg(test)]
-    pub fn get_function_refs(&self) -> (String, String, String, String) {
-        (
-            self.async_snapshot_function.clone(),
-            self.shutdown_function.clone(),
-            self.pass_event_function.clone(),
-            self.check_camera_function.clone(),
-        )
-    }
 }
 
 /// Arguments for BotGuard snapshot generation
@@ -460,7 +417,7 @@ impl BotGuardClient {
             runtime,
             program: program.to_string(),
             global_name: global_name.to_string(),
-            vm_functions: None,
+            initialized: false,
             interpreter_javascript: interpreter_javascript.to_string(),
         })
     }
@@ -529,13 +486,8 @@ impl BotGuardClient {
                 crate::Error::botguard_legacy(format!("Failed to initialize BotGuard VM: {}", e))
             })?;
 
-        // Store VM functions info (simplified for now)
-        self.vm_functions = Some(VmFunctions {
-            async_snapshot_function: "vmFunctions.async".to_string(),
-            shutdown_function: "vmFunctions.shutdown".to_string(),
-            pass_event_function: "vmFunctions.passEvent".to_string(),
-            check_camera_function: "vmFunctions.checkCamera".to_string(),
-        });
+        // Mark VM as initialized
+        self.initialized = true;
 
         tracing::info!("BotGuard VM initialized successfully");
         Ok(())
@@ -543,7 +495,7 @@ impl BotGuardClient {
 
     /// Generate BotGuard response using the VM
     pub async fn generate_response(&mut self) -> Result<String> {
-        if self.vm_functions.is_none() {
+        if !self.initialized {
             return Err(crate::Error::botguard_legacy(
                 "VM not initialized. Call load_program() first.".to_string(),
             ));
@@ -571,7 +523,7 @@ impl BotGuardClient {
     /// Generate BotGuard snapshot with optional parameters for WebPO integration
     /// This method supports the WebPoMinter workflow
     pub async fn snapshot(&mut self, args: SnapshotArgs<'_>) -> Result<String> {
-        if self.vm_functions.is_none() {
+        if !self.initialized {
             return Err(crate::Error::botguard_legacy(
                 "VM not initialized. Call load_program() first.".to_string(),
             ));
@@ -628,9 +580,9 @@ impl BotGuardClient {
         Ok(response)
     }
 
-    /// Get VM functions status
+    /// Get VM initialization status
     pub fn is_initialized(&self) -> bool {
-        self.vm_functions.is_some()
+        self.initialized
     }
 }
 
@@ -650,24 +602,6 @@ mod tests {
         assert!(!request_key.is_empty());
         assert_eq!(request_key, "test_api_key");
         assert!(has_client);
-    }
-
-    #[test]
-    fn test_vm_functions_field_usage() {
-        let vm_functions = VmFunctions::new(
-            "snapshot_fn".to_string(),
-            "shutdown_fn".to_string(),
-            "pass_event_fn".to_string(),
-            "check_camera_fn".to_string(),
-        );
-
-        // Verify all fields can be accessed
-        let (async_fn, shutdown_fn, pass_event_fn, check_camera_fn) =
-            vm_functions.get_function_refs();
-        assert_eq!(async_fn, "snapshot_fn");
-        assert_eq!(shutdown_fn, "shutdown_fn");
-        assert_eq!(pass_event_fn, "pass_event_fn");
-        assert_eq!(check_camera_fn, "check_camera_fn");
     }
 
     #[test]
