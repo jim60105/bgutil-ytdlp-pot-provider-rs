@@ -7,7 +7,73 @@ use crate::{
     types::{ErrorResponse, PingResponse, PotRequest},
     utils::version,
 };
-use axum::{Json as RequestJson, extract::State, http::StatusCode, response::Json};
+use axum::{
+    Json as RequestJson,
+    body::Body,
+    extract::{Request, State},
+    http::StatusCode,
+    middleware::Next,
+    response::{Json, Response},
+};
+
+/// Middleware to validate deprecated fields before processing
+pub async fn validate_deprecated_fields_middleware(
+    request: Request,
+    next: Next,
+) -> Result<Response, (StatusCode, Json<ErrorResponse>)> {
+    // Only check POST requests to /get_pot
+    if request.method() != "POST" || request.uri().path() != "/get_pot" {
+        return Ok(next.run(request).await);
+    }
+
+    // Extract the request body for validation
+    let (parts, body) = request.into_parts();
+    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::with_context(
+                    "Invalid request body",
+                    "request_parsing",
+                )),
+            ));
+        }
+    };
+
+    // Parse JSON to check for deprecated fields
+    if let Ok(json_value) = serde_json::from_slice::<serde_json::Value>(&body_bytes)
+        && let Some(obj) = json_value.as_object()
+    {
+        // Check for data_sync_id
+        if obj.contains_key("data_sync_id") {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::with_context(
+                    "data_sync_id is deprecated, use content_binding instead",
+                    "deprecated_field_validation",
+                )),
+            ));
+        }
+
+        // Check for visitor_data
+        if obj.contains_key("visitor_data") {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::with_context(
+                    "visitor_data is deprecated, use content_binding instead",
+                    "deprecated_field_validation",
+                )),
+            ));
+        }
+    }
+
+    // Reconstruct the request and continue
+    let new_body = Body::from(body_bytes);
+    let new_request = Request::from_parts(parts, new_body);
+
+    Ok(next.run(new_request).await)
+}
 
 /// Generate POT token endpoint
 ///
@@ -20,10 +86,7 @@ pub async fn generate_pot(
 ) -> Result<Json<crate::types::PotResponse>, (StatusCode, Json<ErrorResponse>)> {
     tracing::debug!("Received POT generation request: {:?}", request);
 
-    // Validate deprecated fields (matching TypeScript validation)
-    if let Err(error_response) = validate_deprecated_fields(&request) {
-        return Err((StatusCode::BAD_REQUEST, Json(error_response)));
-    }
+    // Note: Deprecated field validation is now handled by middleware
 
     match state.session_manager.generate_pot_token(&request).await {
         Ok(response) => {
@@ -37,23 +100,13 @@ pub async fn generate_pot(
             tracing::error!("Failed to generate POT token: {}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format_error(&e))),
+                Json(ErrorResponse::with_context(
+                    format_error(&e),
+                    "token_generation",
+                )),
             ))
         }
     }
-}
-
-/// Validate deprecated fields in the request
-///
-/// Checks for deprecated data_sync_id and visitor_data fields
-fn validate_deprecated_fields(_request: &PotRequest) -> Result<(), ErrorResponse> {
-    // Note: Since we're using a structured PotRequest, we need to check if the raw JSON
-    // would contain these deprecated fields. For now, we'll implement this check in a simple way.
-    // In a full implementation, this would require custom deserialization or middleware.
-
-    // For now, return Ok since the structured request doesn't contain these fields
-    // TODO: Implement proper JSON field validation for deprecated fields
-    Ok(())
 }
 
 /// Format error for HTTP response
@@ -108,6 +161,80 @@ pub async fn invalidate_it(State(state): State<AppState>) -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
+/// Health check endpoint
+///
+/// GET /health
+///
+/// Returns detailed health information.
+pub async fn health_check(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let uptime = state.start_time.elapsed().as_secs();
+
+    let health_info = serde_json::json!({
+        "status": "healthy",
+        "uptime": uptime,
+        "version": version::get_version(),
+        "service": "bgutil-ytdlp-pot-provider",
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+
+    tracing::debug!("Health check response: {:?}", health_info);
+    Json(health_info)
+}
+
+/// Service information endpoint
+///
+/// GET /info
+///
+/// Returns service information and available endpoints.
+pub async fn service_info() -> Json<serde_json::Value> {
+    let info = serde_json::json!({
+        "service": "bgutil-ytdlp-pot-provider",
+        "version": version::get_version(),
+        "description": "POT token generation service for yt-dlp",
+        "endpoints": [
+            {
+                "path": "/get_pot",
+                "method": "POST",
+                "description": "Generate POT token"
+            },
+            {
+                "path": "/ping",
+                "method": "GET",
+                "description": "Basic ping endpoint"
+            },
+            {
+                "path": "/health",
+                "method": "GET",
+                "description": "Detailed health check"
+            },
+            {
+                "path": "/info",
+                "method": "GET",
+                "description": "Service information"
+            },
+            {
+                "path": "/invalidate_caches",
+                "method": "POST",
+                "description": "Invalidate all caches"
+            },
+            {
+                "path": "/invalidate_it",
+                "method": "POST",
+                "description": "Invalidate integrity tokens"
+            },
+            {
+                "path": "/minter_cache",
+                "method": "GET",
+                "description": "Get minter cache keys"
+            }
+        ],
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+
+    tracing::debug!("Service info requested");
+    Json(info)
+}
+
 /// Get minter cache keys endpoint
 ///
 /// GET /minter_cache
@@ -121,7 +248,10 @@ pub async fn minter_cache(
         Ok(cache_keys) => Ok(Json(cache_keys)),
         Err(e) => {
             tracing::error!("Failed to retrieve minter cache keys: {}", e);
-            let error_response = ErrorResponse::new(format!("Failed to get cache keys: {}", e));
+            let error_response = ErrorResponse::with_context(
+                format!("Failed to get cache keys: {}", e),
+                "cache_retrieval",
+            );
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
         }
     }
@@ -344,14 +474,6 @@ mod tests {
         assert_eq!(formatted, "Server error: Server configuration invalid");
     }
 
-    #[test]
-    fn test_validate_deprecated_fields() {
-        // Test that validate_deprecated_fields always returns Ok for now
-        let request = PotRequest::new();
-        let result = validate_deprecated_fields(&request);
-        assert!(result.is_ok());
-    }
-
     #[tokio::test]
     async fn test_generate_pot_with_empty_content_binding() {
         let state = create_test_state();
@@ -380,5 +502,250 @@ mod tests {
         assert!(!response.version.is_empty());
         // server_uptime is u64, so always >= 0, just check it's a reasonable value
         assert!(response.server_uptime < 10); // Should be less than 10 seconds for test
+    }
+
+    #[tokio::test]
+    async fn test_health_check_handler() {
+        let state = create_test_state();
+        let response = health_check(State(state)).await;
+
+        assert_eq!(response["status"], "healthy");
+        assert!(response["uptime"].is_number());
+        assert!(!response["version"].as_str().unwrap().is_empty());
+        assert_eq!(response["service"], "bgutil-ytdlp-pot-provider");
+        assert!(response["timestamp"].is_string());
+    }
+
+    #[tokio::test]
+    async fn test_service_info_handler() {
+        let response = service_info().await;
+
+        assert_eq!(response["service"], "bgutil-ytdlp-pot-provider");
+        assert!(!response["version"].as_str().unwrap().is_empty());
+        assert!(response["endpoints"].is_array());
+        assert!(response["timestamp"].is_string());
+
+        // Check that expected endpoints are listed
+        let endpoints = response["endpoints"].as_array().unwrap();
+        let endpoint_paths: Vec<&str> = endpoints
+            .iter()
+            .map(|e| e["path"].as_str().unwrap())
+            .collect();
+
+        assert!(endpoint_paths.contains(&"/get_pot"));
+        assert!(endpoint_paths.contains(&"/ping"));
+        assert!(endpoint_paths.contains(&"/health"));
+        assert!(endpoint_paths.contains(&"/info"));
+    }
+}
+
+// Additional tests for deprecated field validation middleware
+#[cfg(test)]
+mod deprecated_field_tests {
+    use super::*;
+    use crate::config::Settings;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use serde_json::json;
+    use tower::ServiceExt;
+
+    fn create_test_app() -> axum::Router {
+        let settings = Settings::default();
+        let session_manager =
+            std::sync::Arc::new(crate::session::SessionManager::new(settings.clone()));
+
+        let state = AppState {
+            session_manager,
+            settings: std::sync::Arc::new(settings),
+            start_time: std::time::Instant::now(),
+        };
+
+        axum::Router::new()
+            .route("/get_pot", axum::routing::post(generate_pot))
+            .layer(axum::middleware::from_fn(
+                validate_deprecated_fields_middleware,
+            ))
+            .with_state(state)
+    }
+
+    #[tokio::test]
+    async fn test_deprecated_data_sync_id_field() {
+        // Arrange
+        let app = create_test_app();
+
+        let deprecated_request = json!({
+            "data_sync_id": "deprecated_value",
+            "content_binding": "video_id"
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/get_pot")
+            .header("content-type", "application/json")
+            .body(Body::from(deprecated_request.to_string()))
+            .unwrap();
+
+        // Act
+        let response = app.oneshot(request).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_response["error"],
+            "data_sync_id is deprecated, use content_binding instead"
+        );
+        assert_eq!(json_response["context"], "deprecated_field_validation");
+    }
+
+    #[tokio::test]
+    async fn test_deprecated_visitor_data_field() {
+        // Arrange
+        let app = create_test_app();
+
+        let deprecated_request = json!({
+            "visitor_data": "deprecated_visitor",
+            "content_binding": "video_id"
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/get_pot")
+            .header("content-type", "application/json")
+            .body(Body::from(deprecated_request.to_string()))
+            .unwrap();
+
+        // Act
+        let response = app.oneshot(request).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_response["error"],
+            "visitor_data is deprecated, use content_binding instead"
+        );
+        assert_eq!(json_response["context"], "deprecated_field_validation");
+    }
+
+    #[tokio::test]
+    async fn test_both_deprecated_fields() {
+        // Arrange
+        let app = create_test_app();
+
+        let deprecated_request = json!({
+            "data_sync_id": "deprecated_data",
+            "visitor_data": "deprecated_visitor",
+            "content_binding": "video_id"
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/get_pot")
+            .header("content-type", "application/json")
+            .body(Body::from(deprecated_request.to_string()))
+            .unwrap();
+
+        // Act
+        let response = app.oneshot(request).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        // Should return error for data_sync_id (first check)
+        assert_eq!(
+            json_response["error"],
+            "data_sync_id is deprecated, use content_binding instead"
+        );
+        assert_eq!(json_response["context"], "deprecated_field_validation");
+    }
+
+    #[tokio::test]
+    async fn test_valid_request_without_deprecated_fields() {
+        // Arrange
+        let app = create_test_app();
+
+        let valid_request = json!({
+            "content_binding": "video_id",
+            "proxy": "http://proxy:8080"
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/get_pot")
+            .header("content-type", "application/json")
+            .body(Body::from(valid_request.to_string()))
+            .unwrap();
+
+        // Act
+        let response = app.oneshot(request).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_deprecated_fields_case_sensitivity() {
+        // Arrange
+        let app = create_test_app();
+
+        let case_sensitive_request = json!({
+            "Data_Sync_Id": "test",  // Different case
+            "content_binding": "video_id"
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/get_pot")
+            .header("content-type", "application/json")
+            .body(Body::from(case_sensitive_request.to_string()))
+            .unwrap();
+
+        // Act
+        let response = app.oneshot(request).await.unwrap();
+
+        // Assert
+        // Should succeed because field name doesn't match exactly
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_middleware_ignores_non_get_pot_requests() {
+        // Test that middleware only applies to /get_pot endpoint
+        let app = create_test_app();
+
+        let deprecated_request = json!({
+            "data_sync_id": "should_be_ignored"
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/some_other_endpoint") // Different endpoint
+            .header("content-type", "application/json")
+            .body(Body::from(deprecated_request.to_string()))
+            .unwrap();
+
+        // Act
+        let response = app.oneshot(request).await.unwrap();
+
+        // Assert - should get 404 not 400 (deprecated field error)
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }

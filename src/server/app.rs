@@ -4,7 +4,7 @@
 
 use crate::{config::Settings, session::SessionManager};
 use axum::{
-    Router,
+    Router, middleware,
     routing::{get, post},
 };
 use std::sync::Arc;
@@ -34,7 +34,12 @@ pub fn create_app(settings: Settings) -> Router {
 
     Router::new()
         .route("/get_pot", post(super::handlers::generate_pot))
+        .layer(middleware::from_fn(
+            super::handlers::validate_deprecated_fields_middleware,
+        ))
         .route("/ping", get(super::handlers::ping))
+        .route("/health", get(super::handlers::health_check))
+        .route("/info", get(super::handlers::service_info))
         .route(
             "/invalidate_caches",
             post(super::handlers::invalidate_caches),
