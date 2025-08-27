@@ -380,6 +380,7 @@ pub struct BotGuardClient {
 
 /// VM functions returned by BotGuard initialization
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // TODO: Remove when BotGuard VM integration is complete
 struct VmFunctions {
     /// Async snapshot function reference
     async_snapshot_function: String,

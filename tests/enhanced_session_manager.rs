@@ -133,7 +133,10 @@ async fn test_visitor_data_generation() {
     let response = session_manager.generate_pot_token(&request).await.unwrap();
 
     // Should use generated visitor data as content binding
-    assert_eq!(response.content_binding, "placeholder_visitor_data");
+    // The visitor data should be real data from Innertube, not placeholder
+    assert!(!response.content_binding.is_empty());
+    assert_ne!(response.content_binding, "placeholder_visitor_data"); // Should be real data
+    assert!(response.content_binding.len() > 10); // Real visitor data is longer
 }
 
 #[tokio::test]
