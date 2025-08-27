@@ -210,28 +210,30 @@ impl SessionManager {
     /// Corresponds to TypeScript: `generateVisitorData` method (L230-241)
     pub async fn generate_visitor_data(&self) -> Result<String> {
         // For testing, return placeholder if in test mode or if we detect test environment
-        if cfg!(test) || std::env::var("CARGO_NEXTEST").is_ok() || std::env::var("CARGO_TEST").is_ok() {
+        if cfg!(test)
+            || std::env::var("CARGO_NEXTEST").is_ok()
+            || std::env::var("CARGO_TEST").is_ok()
+        {
             tracing::warn!("Visitor data generation using placeholder for tests");
             return Ok("placeholder_visitor_data".to_string());
         }
-        
+
         tracing::info!("Generating visitor data using Innertube API");
-        
+
         // Create Innertube client for visitor data generation
-        let innertube_client = crate::session::innertube::InnertubeClient::new(
-            self.http_client.clone()
-        );
-        
+        let innertube_client =
+            crate::session::innertube::InnertubeClient::new(self.http_client.clone());
+
         // Generate visitor data using Innertube
         let visitor_data = innertube_client.generate_visitor_data().await?;
-        
+
         if visitor_data.is_empty() {
             return Err(crate::Error::VisitorData {
                 reason: "Generated visitor data is empty".to_string(),
                 context: Some("visitor_data_generation".to_string()),
             });
         }
-        
+
         // Validate visitor data format
         if visitor_data.len() < 10 {
             return Err(crate::Error::VisitorData {
@@ -239,8 +241,11 @@ impl SessionManager {
                 context: Some("visitor_data_validation".to_string()),
             });
         }
-        
-        tracing::info!("Visitor data generated successfully: {} chars", visitor_data.len());
+
+        tracing::info!(
+            "Visitor data generated successfully: {} chars",
+            visitor_data.len()
+        );
         Ok(visitor_data)
     }
 
@@ -415,7 +420,7 @@ impl SessionManager {
         _proxy_spec: &ProxySpec,
     ) -> Result<TokenMinterEntry> {
         tracing::info!("Generating token minter (placeholder implementation)");
-        
+
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 
         // Create placeholder WebPoMinter for now
