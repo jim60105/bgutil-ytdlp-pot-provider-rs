@@ -161,8 +161,6 @@ pub async fn invalidate_it(State(state): State<AppState>) -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
-
-
 /// Get minter cache keys endpoint
 ///
 /// GET /minter_cache
@@ -431,8 +429,6 @@ mod tests {
         // server_uptime is u64, so always >= 0, just check it's a reasonable value
         assert!(response.server_uptime < 10); // Should be less than 10 seconds for test
     }
-
-
 }
 
 // Additional tests for deprecated field validation middleware
