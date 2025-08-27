@@ -80,6 +80,22 @@ impl PingResponse {
 pub struct ErrorResponse {
     /// Error message
     pub error: String,
+
+    /// Optional error context
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+
+    /// Optional error details
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+
+    /// Error timestamp
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<DateTime<Utc>>,
+
+    /// Service version
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 impl ErrorResponse {
@@ -87,6 +103,47 @@ impl ErrorResponse {
     pub fn new(error: impl Into<String>) -> Self {
         Self {
             error: error.into(),
+            context: None,
+            details: None,
+            timestamp: Some(Utc::now()),
+            version: Some(crate::utils::version::get_version().to_string()),
+        }
+    }
+
+    /// Create error response with context
+    pub fn with_context(error: impl Into<String>, context: impl Into<String>) -> Self {
+        Self {
+            error: error.into(),
+            context: Some(context.into()),
+            details: None,
+            timestamp: Some(Utc::now()),
+            version: Some(crate::utils::version::get_version().to_string()),
+        }
+    }
+
+    /// Create error response with details
+    pub fn with_details(error: impl Into<String>, details: serde_json::Value) -> Self {
+        Self {
+            error: error.into(),
+            context: None,
+            details: Some(details),
+            timestamp: Some(Utc::now()),
+            version: Some(crate::utils::version::get_version().to_string()),
+        }
+    }
+
+    /// Create error response with both context and details
+    pub fn with_context_and_details(
+        error: impl Into<String>,
+        context: impl Into<String>,
+        details: serde_json::Value,
+    ) -> Self {
+        Self {
+            error: error.into(),
+            context: Some(context.into()),
+            details: Some(details),
+            timestamp: Some(Utc::now()),
+            version: Some(crate::utils::version::get_version().to_string()),
         }
     }
 }
@@ -180,6 +237,55 @@ mod tests {
     fn test_error_response() {
         let response = ErrorResponse::new("Test error");
         assert_eq!(response.error, "Test error");
+        assert!(response.timestamp.is_some());
+        assert!(response.version.is_some());
+        assert_eq!(response.context, None);
+        assert_eq!(response.details, None);
+    }
+
+    #[test]
+    fn test_error_response_with_context() {
+        let error = ErrorResponse::with_context("Validation failed", "request_validation");
+
+        assert_eq!(error.error, "Validation failed");
+        assert_eq!(error.context, Some("request_validation".to_string()));
+        assert!(error.timestamp.is_some());
+        assert!(error.version.is_some());
+        assert_eq!(error.details, None);
+    }
+
+    #[test]
+    fn test_error_response_with_details() {
+        let details = serde_json::json!({
+            "field": "content_binding",
+            "expected": "string",
+            "received": "null"
+        });
+
+        let error = ErrorResponse::with_details("Invalid field type", details.clone());
+
+        assert_eq!(error.error, "Invalid field type");
+        assert_eq!(error.details, Some(details));
+        assert!(error.timestamp.is_some());
+        assert!(error.version.is_some());
+        assert_eq!(error.context, None);
+    }
+
+    #[test]
+    fn test_error_response_with_context_and_details() {
+        let details = serde_json::json!({"test": "value"});
+
+        let error = ErrorResponse::with_context_and_details(
+            "Complex error",
+            "validation_context",
+            details.clone(),
+        );
+
+        assert_eq!(error.error, "Complex error");
+        assert_eq!(error.context, Some("validation_context".to_string()));
+        assert_eq!(error.details, Some(details));
+        assert!(error.timestamp.is_some());
+        assert!(error.version.is_some());
     }
 
     #[test]
