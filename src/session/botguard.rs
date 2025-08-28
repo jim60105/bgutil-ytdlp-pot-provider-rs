@@ -4,7 +4,6 @@
 //! the rustypipe-botguard crate for real POT token generation.
 
 use crate::Result;
-use rustypipe_botguard::Botguard;
 use std::path::PathBuf;
 use time::OffsetDateTime;
 
@@ -50,8 +49,10 @@ impl BotGuardClient {
         Ok(())
     }
 
-    /// Create a new Botguard instance on demand
-    async fn create_botguard_instance(&self) -> Result<Botguard> {
+    /// Generate POT token by creating a new Botguard instance in a blocking task
+    pub async fn generate_po_token(&self, identifier: &str) -> Result<String> {
+        tracing::debug!("Generating POT token for identifier: {}", identifier);
+
         if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
             return Err(crate::Error::botguard(
                 "not_initialized",
@@ -59,31 +60,43 @@ impl BotGuardClient {
             ));
         }
 
-        let mut builder = rustypipe_botguard::Botguard::builder();
+        let snapshot_path = self.snapshot_path.clone();
+        let user_agent = self.user_agent.clone();
+        let identifier = identifier.to_string();
 
-        if let Some(ref path) = self.snapshot_path {
-            builder = builder.snapshot_path(path);
-        }
+        // Use spawn_blocking to run BotGuard operations on a dedicated thread
+        // since BotGuard instances are !Send and !Sync
+        tokio::task::spawn_blocking(move || {
+            // Create a simple blocking runtime for the Botguard operations
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| {
+                    crate::Error::botguard("runtime_creation_failed", e.to_string().as_str())
+                })?;
 
-        if let Some(ref ua) = self.user_agent {
-            builder = builder.user_agent(ua);
-        }
+            rt.block_on(async move {
+                let mut builder = rustypipe_botguard::Botguard::builder();
 
-        builder
-            .init()
-            .await
-            .map_err(|e| crate::Error::botguard("initialization_failed", e.to_string().as_str()))
-    }
+                if let Some(ref path) = snapshot_path {
+                    builder = builder.snapshot_path(path);
+                }
 
-    /// Generate POT token by creating a new Botguard instance
-    pub async fn generate_po_token(&self, identifier: &str) -> Result<String> {
-        tracing::debug!("Generating POT token for identifier: {}", identifier);
+                if let Some(ref ua) = user_agent {
+                    builder = builder.user_agent(ua);
+                }
 
-        let mut botguard = self.create_botguard_instance().await?;
-        botguard
-            .mint_token(identifier)
-            .await
-            .map_err(|e| crate::Error::token_generation(format!("Failed to mint token: {}", e)))
+                let mut botguard = builder.init().await.map_err(|e| {
+                    crate::Error::botguard("initialization_failed", e.to_string().as_str())
+                })?;
+
+                botguard.mint_token(&identifier).await.map_err(|e| {
+                    crate::Error::token_generation(format!("Failed to mint token: {}", e))
+                })
+            })
+        })
+        .await
+        .map_err(|e| crate::Error::token_generation(format!("Task join error: {}", e)))?
     }
 
     /// Check if BotGuard is initialized
@@ -109,6 +122,11 @@ impl BotGuardClient {
         Ok(true)
     }
 }
+
+// Explicit trait implementations for thread safety
+// BotGuardClient uses AtomicBool and owned types, making it Send + Sync safe
+unsafe impl Send for BotGuardClient {}
+unsafe impl Sync for BotGuardClient {}
 
 /// Placeholder for backward compatibility - will be removed
 /// This maintains the interface for existing code during transition

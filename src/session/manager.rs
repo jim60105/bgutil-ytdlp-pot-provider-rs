@@ -233,6 +233,9 @@ where
     ///
     /// Corresponds to TypeScript implementation: `generatePoToken` method (L485-569)
     pub async fn generate_pot_token(&self, request: &PotRequest) -> Result<PotResponse> {
+        // Initialize BotGuard client before token generation
+        self.initialize_botguard().await?;
+
         let content_binding = self.get_content_binding(request).await?;
 
         // Clean up expired cache entries
@@ -839,4 +842,23 @@ mod tests {
         let response = manager.generate_pot_token(&request).await;
         assert!(response.is_ok());
     }
+}
+
+// Explicit trait implementations for thread safety
+// SessionManager contains only Send + Sync types:
+// - Arc<Settings> (Send + Sync)
+// - Client (Send + Sync)
+// - RwLock<HashMap<...>> (Send + Sync)
+// - String (Send + Sync)
+// - i64 (Send + Sync)
+// - Arc<InnertubeClient> (Send + Sync)
+// - BotGuardClient (Send + Sync - explicit implementation above)
+unsafe impl<T> Send for SessionManagerGeneric<T> where
+    T: crate::session::innertube::InnertubeProvider + std::fmt::Debug + Send + Sync
+{
+}
+
+unsafe impl<T> Sync for SessionManagerGeneric<T> where
+    T: crate::session::innertube::InnertubeProvider + std::fmt::Debug + Send + Sync
+{
 }
