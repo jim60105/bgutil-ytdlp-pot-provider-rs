@@ -62,6 +62,7 @@ pub struct ChallengeData {
 /// Trusted resource URL wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedResourceUrl {
+    /// The wrapped trusted resource URL value (Google's private field naming convention)
     #[serde(rename = "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue")]
     pub private_do_not_access_or_else_trusted_resource_url_wrapped_value: String,
 }
@@ -100,8 +101,10 @@ pub struct DescrambledChallenge {
 /// Trusted script wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedScript {
+    /// The wrapped script content (Google's private field naming convention)
     #[serde(rename = "privateDoNotAccessOrElseSafeScriptWrappedValue")]
     pub private_do_not_access_or_else_safe_script_wrapped_value: String,
+    /// The trusted resource URL where the script originated (Google's private field naming convention)
     #[serde(rename = "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue")]
     pub private_do_not_access_or_else_trusted_resource_url_wrapped_value: String,
 }

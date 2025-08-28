@@ -38,8 +38,6 @@ pub fn create_app(settings: Settings) -> Router {
             super::handlers::validate_deprecated_fields_middleware,
         ))
         .route("/ping", get(super::handlers::ping))
-        .route("/health", get(super::handlers::health_check))
-        .route("/info", get(super::handlers::service_info))
         .route(
             "/invalidate_caches",
             post(super::handlers::invalidate_caches),

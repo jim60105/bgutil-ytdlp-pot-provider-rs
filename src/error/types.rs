@@ -31,88 +31,130 @@ pub enum Error {
     /// BotGuard related errors (corresponds to BGError in TypeScript)
     #[error("BotGuard error ({code}): {message}")]
     BotGuard {
+        /// Error code identifying the specific BotGuard failure
         code: String,
+        /// Human-readable error message
         message: String,
+        /// Additional error information as JSON
         info: Option<serde_json::Value>,
     },
 
     /// Token generation errors
     #[error("Token generation failed: {reason}")]
     TokenGeneration {
+        /// The reason why token generation failed
         reason: String,
+        /// Optional stage information where the failure occurred
         stage: Option<String>,
     },
 
     /// Cache operation errors
     #[error("Cache error during {operation}: {details}")]
-    Cache { operation: String, details: String },
+    Cache {
+        /// The cache operation that failed
+        operation: String,
+        /// Detailed error description
+        details: String,
+    },
 
     /// Configuration errors
     #[error("Configuration error in {field}: {message}")]
-    Config { field: String, message: String },
+    Config {
+        /// The configuration field that has an error
+        field: String,
+        /// Error message describing the issue
+        message: String,
+    },
 
     /// Integrity token errors
     #[error("Integrity token error: {details}")]
     IntegrityToken {
+        /// Detailed error description
         details: String,
+        /// Optional response data that caused the error
         response_data: Option<serde_json::Value>,
     },
 
     /// Visitor data generation errors
     #[error("Visitor data generation failed: {reason}")]
     VisitorData {
+        /// The reason why visitor data generation failed
         reason: String,
+        /// Additional context about the failure
         context: Option<String>,
     },
 
     /// Challenge processing errors
     #[error("Challenge processing failed at stage '{stage}': {message}")]
-    Challenge { stage: String, message: String },
+    Challenge {
+        /// The processing stage where the error occurred
+        stage: String,
+        /// Error message describing what went wrong
+        message: String,
+    },
 
     /// Proxy configuration errors
     #[error("Proxy error with config '{config}': {message}")]
-    Proxy { config: String, message: String },
+    Proxy {
+        /// The proxy configuration that caused the error
+        config: String,
+        /// Error message describing the proxy issue
+        message: String,
+    },
 
     /// Network/connection errors
     #[error("Network error: {message}")]
     Network {
+        /// Error message describing the network issue
         message: String,
+        /// Number of retries attempted before giving up
         retry_count: Option<u32>,
     },
 
     /// Timeout errors
     #[error("Operation timed out after {duration_secs} seconds: {operation}")]
     Timeout {
+        /// The operation that timed out
         operation: String,
+        /// Duration in seconds before timing out
         duration_secs: u64,
     },
 
     /// Authentication/authorization errors
     #[error("Authentication failed: {reason}")]
     Auth {
+        /// The reason why authentication failed
         reason: String,
+        /// The endpoint where authentication was attempted
         endpoint: Option<String>,
     },
 
     /// Rate limiting errors
     #[error("Rate limited: {message}")]
     RateLimit {
+        /// Message describing the rate limit
         message: String,
+        /// Seconds to wait before retrying
         retry_after: Option<u64>,
     },
 
     /// Validation errors
     #[error("Validation failed for {field}: {message}")]
     Validation {
+        /// The field that failed validation
         field: String,
+        /// Error message describing the validation failure
         message: String,
+        /// The invalid value that caused the validation to fail
         value: Option<String>,
     },
 
     /// Generic internal errors
     #[error("Internal error: {message}")]
     Internal {
+        /// Error message describing the internal issue
         message: String,
+        /// Additional context about where the error occurred
         context: Option<String>,
     },
 
@@ -135,27 +177,45 @@ pub enum Error {
 
     /// BotGuard related errors (legacy)
     #[error("BotGuard error: {message}")]
-    BotGuardLegacy { message: String },
+    BotGuardLegacy {
+        /// Error message describing the BotGuard issue
+        message: String,
+    },
 
     /// Cache operation errors (legacy)
     #[error("Cache error: {operation}")]
-    CacheLegacy { operation: String },
+    CacheLegacy {
+        /// The cache operation that failed
+        operation: String,
+    },
 
     /// Integrity token errors (legacy)
     #[error("Integrity token error: {details}")]
-    IntegrityTokenLegacy { details: String },
+    IntegrityTokenLegacy {
+        /// Error details describing the integrity token issue
+        details: String,
+    },
 
     /// Visitor data generation errors (legacy)
     #[error("Visitor data generation failed: {reason}")]
-    VisitorDataLegacy { reason: String },
+    VisitorDataLegacy {
+        /// The reason why visitor data generation failed
+        reason: String,
+    },
 
     /// Challenge processing errors (legacy)
     #[error("Challenge processing failed: {stage}")]
-    ChallengeLegacy { stage: String },
+    ChallengeLegacy {
+        /// The processing stage where the error occurred
+        stage: String,
+    },
 
     /// Proxy configuration errors (legacy)
     #[error("Proxy error: {config}")]
-    ProxyLegacy { config: String },
+    ProxyLegacy {
+        /// The proxy configuration that caused the error
+        config: String,
+    },
 
     /// Date/time parsing errors
     #[error("Date parsing error: {0}")]

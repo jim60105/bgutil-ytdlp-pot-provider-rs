@@ -2,6 +2,9 @@
 
 A high-performance YouTube POT (Proof-of-Origin Token) provider implemented in Rust, designed to help yt-dlp bypass the "Sign in to confirm you're not a bot" restrictions with improved performance and reliability.
 
+> [!IMPORTANT]
+> **Development Status**: This is currently a development version of the Rust implementation. The core functionality is implemented and tested, but some features are still being refined. The implementation uses placeholder token generation for testing purposes.
+
 > [!CAUTION]
 > Providing a POT token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
 
@@ -51,43 +54,17 @@ yt-dlp (bypasses bot check)
 ### Prerequisites
 
 1. **yt-dlp**: Version `2025.05.22` or above
-2. **System Requirements**: 
+2. **System Requirements**:
    - Linux (x86_64), Windows (x86_64), or macOS (Intel/Apple Silicon)
    - 512MB available memory
    - Stable internet connection
 
 ### Step 1: Install the Rust POT Provider
 
-Choose one of the following installation methods:
+> [!NOTE]
+> This is currently a development version. Pre-compiled binaries and crates.io packages are not yet available.
 
-#### Option A: Pre-compiled Binaries (Recommended)
-
-Download the appropriate binary from [Releases](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest):
-
-```bash
-# Linux x86_64
-wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-linux-x86_64
-chmod +x bgutil-ytdlp-pot-provider-rs-linux-x86_64
-
-# macOS Intel
-wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-macos-x86_64
-chmod +x bgutil-ytdlp-pot-provider-rs-macos-x86_64
-
-# macOS Apple Silicon  
-wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-macos-aarch64
-chmod +x bgutil-ytdlp-pot-provider-rs-macos-aarch64
-
-# Windows (download .exe file)
-# https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-windows-x86_64.exe
-```
-
-#### Option B: Install from crates.io
-
-```bash
-cargo install bgutil-ytdlp-pot-provider
-```
-
-#### Option C: Build from Source
+#### Option A: Build from Source (Current Method)
 
 Requirements: Rust 1.85+ (edition 2024) and Cargo
 
@@ -115,6 +92,7 @@ python3 -m pip install -U bgutil-ytdlp-pot-provider
 
 1. Download the latest plugin zip from [original project releases](https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases)
 2. Extract to one of the [yt-dlp plugin directories](https://github.com/yt-dlp/yt-dlp#installing-plugins)
+
 ## Usage
 
 ### HTTP Server Mode (Recommended)
@@ -124,25 +102,34 @@ The HTTP server mode provides the best performance and user experience.
 #### 1. Start the POT Provider Server
 
 ```bash
-# Using default settings (binds to 127.0.0.1:4416)
+# Using default settings (binds to [::]:4416, IPv6 with IPv4 fallback)
 ./bgutil-pot-server
 
 # Custom port
 ./bgutil-pot-server --port 8080
 
-# Custom bind address (e.g., to accept connections from other machines)
-./bgutil-pot-server --bind 0.0.0.0 --port 4416
+# Custom host address
+./bgutil-pot-server --host 127.0.0.1 --port 4416
 
 # With verbose logging
 ./bgutil-pot-server --verbose
 ```
 
 **Server Command Line Options:**
-- `--bind <ADDRESS>`: Bind address (default: 127.0.0.1)
+
+- `--host <HOST>`: Host address to bind to (default: ::)
 - `--port <PORT>`: Listen port (default: 4416)
-- `--config <FILE>`: Configuration file path
-- `--log-level <LEVEL>`: Log level (error, warn, info, debug, trace)
 - `--verbose`: Enable verbose logging
+
+#### Server API Endpoints
+
+The HTTP server provides the following REST API endpoints:
+
+- `POST /get_pot`: Generate a new POT token
+- `GET /ping`: Health check endpoint
+- `POST /invalidate_caches`: Clear all internal caches
+- `POST /invalidate_it`: Invalidate integrity tokens
+- `GET /minter_cache`: Get minter cache status
 
 #### 2. Use with yt-dlp
 
@@ -175,11 +162,21 @@ For occasional use or environments where running a persistent service is not des
 # Bypass cache to force new token generation
 ./bgutil-pot-generate --content-binding "VIDEO_ID" --bypass-cache
 
-# JSON output format
-./bgutil-pot-generate --content-binding "VIDEO_ID" --output json
+# With verbose logging
+./bgutil-pot-generate --content-binding "VIDEO_ID" --verbose
 ```
 
-#### 2. Use with yt-dlp
+**Generate Command Line Options:**
+
+- `--content-binding <CONTENT_BINDING>`: Content binding (video ID, visitor data, etc.)
+- `--proxy <PROXY>`: Proxy server URL (format: `http://host:port`, `socks5://host:port`, etc.)
+- `--bypass-cache`: Bypass cache and force new token generation
+- `--source-address <SOURCE_ADDRESS>`: Source IP address for outbound connections
+- `--disable-tls-verification`: Disable TLS certificate verification
+- `--verbose`: Enable verbose logging
+- `--version`: Show version information
+
+#### 2. Integrate with yt-dlp
 
 ```bash
 # Specify the script path for yt-dlp integration
@@ -188,28 +185,30 @@ yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot
 
 ### Configuration
 
+> [!NOTE]
+> Configuration file support is currently under development. Most settings are controlled via command line arguments or environment variables.
+
 Both modes support configuration via:
+
 1. Command line arguments (highest priority)
 2. Environment variables
-3. Configuration file (`~/.config/bgutil-pot-provider/config.toml`)
-4. Default values (lowest priority)
+3. Default values
 
-**Example configuration file:**
-```toml
-[server]
-bind = "127.0.0.1"
-port = 4416
+**Environment Variables:**
 
-[logging]
-level = "info"
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RUST_LOG` | Logging level (error, warn, info, debug, trace) | `info` |
 
-[cache]
-ttl_hours = 6
-max_entries = 1000
+**Example usage with environment variables:**
 
-[network]
-connect_timeout = 30
-request_timeout = 60
+```bash
+# Set logging level
+export RUST_LOG=debug
+./bgutil-pot-server
+
+# Multiple settings
+RUST_LOG=debug ./bgutil-pot-generate --content-binding "VIDEO_ID"
 ```
 
 ### Proxy Support
@@ -236,7 +235,8 @@ yt-dlp -v "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 You should see output similar to:
-```
+
+```text
 [debug] [youtube] [pot] PO Token Providers: bgutil:http-1.2.2 (external), bgutil:script-1.2.2 (external)
 ```
 
@@ -245,6 +245,7 @@ You should see output similar to:
 ### Common Issues
 
 #### POT tokens not working
+
 If tokens stop working, try the following in order:
 
 1. **Restart the provider**: Stop and restart the HTTP server or regenerate tokens with `--bypass-cache`
@@ -253,6 +254,7 @@ If tokens stop working, try the following in order:
 4. **Update software**: Ensure you're using the latest versions of both this provider and yt-dlp
 
 #### Connection issues
+
 ```bash
 # Check if the server is running (HTTP mode)
 curl http://127.0.0.1:4416/ping
@@ -265,7 +267,9 @@ curl http://127.0.0.1:4416/ping
 ```
 
 #### Plugin not detected
+
 Verify the plugin installation:
+
 ```bash
 yt-dlp -v "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 2>&1 | grep -i "pot"
 ```
@@ -284,8 +288,6 @@ Should show: `[debug] [youtube] [pot] PO Token Providers: bgutil:http-...`
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `RUST_LOG` | Logging level | `info` |
-| `BGUTIL_CONFIG` | Config file path | `~/.config/bgutil-pot-provider/config.toml` |
-| `TOKEN_TTL` | Token cache TTL (hours) | `6` |
 
 ## Contributing
 
@@ -306,6 +308,20 @@ cargo nextest run
 # Run quality checks
 ./scripts/quality_check.sh
 ```
+
+### Current Development Status
+
+The Rust implementation includes:
+
+- ✅ HTTP server with REST API endpoints
+- ✅ Script mode for one-time token generation  
+- ✅ Session management and caching
+- ✅ Proxy support (HTTP/HTTPS/SOCKS5)
+- ✅ Configuration management
+- ✅ Comprehensive test suite
+- 🚧 BotGuard integration (currently using placeholder tokens for testing)
+- 🚧 Real POT token generation (implementation in progress)
+- 🚧 Production-ready releases
 
 ## License
 

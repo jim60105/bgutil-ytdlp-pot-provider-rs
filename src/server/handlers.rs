@@ -161,80 +161,6 @@ pub async fn invalidate_it(State(state): State<AppState>) -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
-/// Health check endpoint
-///
-/// GET /health
-///
-/// Returns detailed health information.
-pub async fn health_check(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let uptime = state.start_time.elapsed().as_secs();
-
-    let health_info = serde_json::json!({
-        "status": "healthy",
-        "uptime": uptime,
-        "version": version::get_version(),
-        "service": "bgutil-ytdlp-pot-provider",
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-    });
-
-    tracing::debug!("Health check response: {:?}", health_info);
-    Json(health_info)
-}
-
-/// Service information endpoint
-///
-/// GET /info
-///
-/// Returns service information and available endpoints.
-pub async fn service_info() -> Json<serde_json::Value> {
-    let info = serde_json::json!({
-        "service": "bgutil-ytdlp-pot-provider",
-        "version": version::get_version(),
-        "description": "POT token generation service for yt-dlp",
-        "endpoints": [
-            {
-                "path": "/get_pot",
-                "method": "POST",
-                "description": "Generate POT token"
-            },
-            {
-                "path": "/ping",
-                "method": "GET",
-                "description": "Basic ping endpoint"
-            },
-            {
-                "path": "/health",
-                "method": "GET",
-                "description": "Detailed health check"
-            },
-            {
-                "path": "/info",
-                "method": "GET",
-                "description": "Service information"
-            },
-            {
-                "path": "/invalidate_caches",
-                "method": "POST",
-                "description": "Invalidate all caches"
-            },
-            {
-                "path": "/invalidate_it",
-                "method": "POST",
-                "description": "Invalidate integrity tokens"
-            },
-            {
-                "path": "/minter_cache",
-                "method": "GET",
-                "description": "Get minter cache keys"
-            }
-        ],
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-    });
-
-    tracing::debug!("Service info requested");
-    Json(info)
-}
-
 /// Get minter cache keys endpoint
 ///
 /// GET /minter_cache
@@ -502,40 +428,6 @@ mod tests {
         assert!(!response.version.is_empty());
         // server_uptime is u64, so always >= 0, just check it's a reasonable value
         assert!(response.server_uptime < 10); // Should be less than 10 seconds for test
-    }
-
-    #[tokio::test]
-    async fn test_health_check_handler() {
-        let state = create_test_state();
-        let response = health_check(State(state)).await;
-
-        assert_eq!(response["status"], "healthy");
-        assert!(response["uptime"].is_number());
-        assert!(!response["version"].as_str().unwrap().is_empty());
-        assert_eq!(response["service"], "bgutil-ytdlp-pot-provider");
-        assert!(response["timestamp"].is_string());
-    }
-
-    #[tokio::test]
-    async fn test_service_info_handler() {
-        let response = service_info().await;
-
-        assert_eq!(response["service"], "bgutil-ytdlp-pot-provider");
-        assert!(!response["version"].as_str().unwrap().is_empty());
-        assert!(response["endpoints"].is_array());
-        assert!(response["timestamp"].is_string());
-
-        // Check that expected endpoints are listed
-        let endpoints = response["endpoints"].as_array().unwrap();
-        let endpoint_paths: Vec<&str> = endpoints
-            .iter()
-            .map(|e| e["path"].as_str().unwrap())
-            .collect();
-
-        assert!(endpoint_paths.contains(&"/get_pot"));
-        assert!(endpoint_paths.contains(&"/ping"));
-        assert!(endpoint_paths.contains(&"/health"));
-        assert!(endpoint_paths.contains(&"/info"));
     }
 }
 
