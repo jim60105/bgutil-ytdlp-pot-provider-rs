@@ -79,8 +79,11 @@ toml = "0.8"
 # URL parsing and validation
 url = "2.5"
 
-# JavaScript engine for BotGuard integration
-deno_core = "0.240"
+# BotGuard integration - using dedicated Rust crate
+rustypipe-botguard = "0.1.2"
+
+# Time handling (used by rustypipe-botguard)
+time = { version = "0.3", features = ["formatting", "parsing"] }
 
 # Base64 encoding/decoding
 base64 = "0.21"
