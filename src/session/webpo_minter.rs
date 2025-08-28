@@ -6,7 +6,7 @@
 use crate::Result;
 
 /// WebPoMinter for generating POT tokens
-/// 
+///
 /// Note: This is now a simplified wrapper around rustypipe-botguard.
 /// The actual POT token generation is handled by the BotGuardClient.
 #[derive(Clone, Debug)]
@@ -27,32 +27,32 @@ impl WebPoMinter {
     }
 
     /// Generate POT token using the provided data
-    /// 
+    ///
     /// This is now a placeholder that delegates to the BotGuardClient.
     /// The actual implementation should use the rustypipe-botguard integration.
     pub async fn generate_pot_token(&self, _data: &[u8]) -> Result<String> {
         // This method is deprecated and should not be used directly.
         // POT token generation should be done through the BotGuardClient.
         Err(crate::Error::token_generation(
-            "WebPoMinter is deprecated. Use BotGuardClient for POT token generation."
+            "WebPoMinter is deprecated. Use BotGuardClient for POT token generation.",
         ))
     }
 
     /// Mint websafe string (backward compatibility method)
-    /// 
+    ///
     /// This method is kept for backward compatibility but should not be used.
     /// Use BotGuardClient.generate_po_token() instead.
     pub async fn mint_websafe_string(&self, _identifier: &str) -> Result<String> {
         // This method is deprecated and should not be used directly.
         // POT token generation should be done through the BotGuardClient.
         Err(crate::Error::token_generation(
-            "WebPoMinter.mint_websafe_string is deprecated. Use BotGuardClient.generate_po_token instead."
+            "WebPoMinter.mint_websafe_string is deprecated. Use BotGuardClient.generate_po_token instead.",
         ))
     }
 }
 
 /// JavaScript runtime handle for function execution
-/// 
+///
 /// Simplified version that doesn't depend on deno_core.
 #[derive(Clone, Debug)]
 pub struct JsRuntimeHandle {
@@ -90,14 +90,18 @@ impl JsRuntimeHandle {
     }
 
     /// Call function with bytes (simplified implementation)
-    pub async fn call_function_with_bytes(&self, _function_name: &str, _bytes: &[u8]) -> Result<Vec<u8>> {
+    pub async fn call_function_with_bytes(
+        &self,
+        _function_name: &str,
+        _bytes: &[u8],
+    ) -> Result<Vec<u8>> {
         if self._test_mode {
             // Return test data for testing
             Ok(vec![0x12, 0x34, 0x56, 0x78])
         } else {
             // In real mode, this should delegate to BotGuardClient
             Err(crate::Error::token_generation(
-                "JsRuntimeHandle is deprecated. Use BotGuardClient for POT token generation."
+                "JsRuntimeHandle is deprecated. Use BotGuardClient for POT token generation.",
             ))
         }
     }
@@ -152,7 +156,7 @@ mod tests {
     fn test_webpo_minter_creation() {
         let handle = JsRuntimeHandle::new_for_test();
         let minter = WebPoMinter::new("test_callback".to_string(), handle);
-        
+
         assert_eq!(minter.mint_callback_ref, "test_callback");
         assert!(minter.runtime_handle._test_mode);
     }
@@ -161,7 +165,7 @@ mod tests {
     async fn test_webpo_minter_generate_pot_token() {
         let handle = JsRuntimeHandle::new_for_test();
         let minter = WebPoMinter::new("test_callback".to_string(), handle);
-        
+
         let result = minter.generate_pot_token(&[1, 2, 3, 4]).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("deprecated"));

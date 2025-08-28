@@ -503,8 +503,10 @@ where
         if self.botguard_client.is_initialized().await {
             return Ok(());
         }
-        
-        self.botguard_client.initialize().await
+
+        self.botguard_client
+            .initialize()
+            .await
             .map_err(|e| crate::Error::session(format!("BotGuard initialization failed: {}", e)))
     }
 

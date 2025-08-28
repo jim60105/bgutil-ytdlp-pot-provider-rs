@@ -13,7 +13,7 @@ use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
-    response::{Response, IntoResponse},
+    response::{IntoResponse, Response},
 };
 
 /// Middleware to validate deprecated fields before processing
@@ -104,7 +104,8 @@ pub async fn generate_pot(
                     format_error(&e),
                     "token_generation",
                 )),
-            ).into_response()
+            )
+                .into_response()
         }
     }
 }

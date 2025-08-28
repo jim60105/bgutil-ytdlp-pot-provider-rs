@@ -300,7 +300,7 @@ impl Default for BotGuardSettings {
                 dirs::data_dir()
                     .unwrap_or_else(|| std::path::PathBuf::from("."))
                     .join("bgutil-ytdlp-pot-provider")
-                    .join("botguard_snapshot.bin")
+                    .join("botguard_snapshot.bin"),
             ),
             user_agent: None, // Use rustypipe-botguard default
             disable_snapshot: false,
