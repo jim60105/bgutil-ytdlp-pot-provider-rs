@@ -7,6 +7,9 @@ use crate::Result;
 use std::path::PathBuf;
 use time::OffsetDateTime;
 
+// Global mutex to serialize BotGuard operations to prevent V8 runtime conflicts
+static BOTGUARD_MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// BotGuard client using rustypipe-botguard crate
 pub struct BotGuardClient {
     /// Snapshot file path for caching
@@ -59,6 +62,10 @@ impl BotGuardClient {
                 "BotGuard client not initialized. Call initialize() first.",
             ));
         }
+
+        // Acquire global mutex to serialize BotGuard operations
+        let _guard = BOTGUARD_MUTEX.lock().await;
+        tracing::debug!("Acquired BotGuard mutex for identifier: {}", identifier);
 
         let snapshot_path = self.snapshot_path.clone();
         let user_agent = self.user_agent.clone();
