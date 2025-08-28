@@ -86,6 +86,8 @@ pub struct SessionManagerGeneric<
     token_ttl_hours: i64,
     /// Innertube provider for visitor data generation
     innertube_provider: Arc<T>,
+    /// BotGuard client for POT token generation
+    botguard_client: crate::session::botguard::BotGuardClient,
 }
 
 impl SessionManagerGeneric<crate::session::innertube::InnertubeClient> {
@@ -115,6 +117,17 @@ impl SessionManagerGeneric<crate::session::innertube::InnertubeClient> {
 
         let innertube_client = crate::session::innertube::InnertubeClient::new(http_client.clone());
 
+        // Create BotGuard client with configuration
+        let snapshot_path = if settings.botguard.disable_snapshot {
+            None
+        } else {
+            settings.botguard.snapshot_path.clone()
+        };
+        let botguard_client = crate::session::botguard::BotGuardClient::new(
+            snapshot_path,
+            settings.botguard.user_agent.clone(),
+        );
+
         Self {
             settings: Arc::new(settings),
             http_client,
@@ -123,6 +136,7 @@ impl SessionManagerGeneric<crate::session::innertube::InnertubeClient> {
             request_key: "O43z0dpjhgX20SCx4KAo".to_string(), // Hardcoded API key from TS
             token_ttl_hours: 6,                              // Default from TS implementation
             innertube_provider: Arc::new(innertube_client),
+            botguard_client,
         }
     }
 }
@@ -139,6 +153,17 @@ where
             .build()
             .expect("Failed to create HTTP client");
 
+        // Create BotGuard client with configuration
+        let snapshot_path = if settings.botguard.disable_snapshot {
+            None
+        } else {
+            settings.botguard.snapshot_path.clone()
+        };
+        let botguard_client = crate::session::botguard::BotGuardClient::new(
+            snapshot_path,
+            settings.botguard.user_agent.clone(),
+        );
+
         Self {
             settings: Arc::new(settings),
             http_client,
@@ -147,6 +172,7 @@ where
             request_key: "O43z0dpjhgX20SCx4KAo".to_string(),
             token_ttl_hours: 6,
             innertube_provider: Arc::new(provider),
+            botguard_client,
         }
     }
 }
@@ -472,21 +498,34 @@ where
         }
     }
 
-    /// Mint POT token using the token minter
+    /// Initialize BotGuard client
+    pub async fn initialize_botguard(&self) -> Result<()> {
+        if self.botguard_client.is_initialized().await {
+            return Ok(());
+        }
+        
+        self.botguard_client.initialize().await
+            .map_err(|e| crate::Error::session(format!("BotGuard initialization failed: {}", e)))
+    }
+
+    /// Generate POT token using BotGuard client
+    pub async fn generate_po_token(&self, identifier: &str) -> Result<String> {
+        // Create new instance on demand since botguard is not Send+Sync
+        self.botguard_client.generate_po_token(identifier).await
+    }
+
+    /// Mint POT token using the BotGuard client (replaces WebPoMinter)
     ///
     /// Corresponds to TypeScript: `tryMintPOT` method (L410-436)
     async fn mint_pot_token(
         &self,
         content_binding: &str,
-        token_minter: &TokenMinterEntry,
+        _token_minter: &TokenMinterEntry, // Keep for backward compatibility
     ) -> Result<SessionData> {
         tracing::info!("Generating POT for {}", content_binding);
 
-        // Use the WebPoMinter to mint a token for the content binding
-        let po_token = token_minter
-            .minter
-            .mint_websafe_string(content_binding)
-            .await?;
+        // Use the BotGuard client to generate POT token
+        let po_token = self.generate_po_token(content_binding).await?;
 
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 

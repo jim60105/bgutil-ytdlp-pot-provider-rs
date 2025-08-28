@@ -8,12 +8,12 @@ use crate::{
     utils::version,
 };
 use axum::{
-    Json as RequestJson,
+    Json,
     body::Body,
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
-    response::{Json, Response},
+    response::Response,
 };
 
 /// Middleware to validate deprecated fields before processing
@@ -82,7 +82,7 @@ pub async fn validate_deprecated_fields_middleware(
 /// Generates a new POT token based on the request parameters.
 pub async fn generate_pot(
     State(state): State<AppState>,
-    RequestJson(request): RequestJson<PotRequest>,
+    Json(request): Json<PotRequest>,
 ) -> Result<Json<crate::types::PotResponse>, (StatusCode, Json<ErrorResponse>)> {
     tracing::debug!("Received POT generation request: {:?}", request);
 
@@ -212,7 +212,7 @@ mod tests {
         let state = create_test_state();
         let request = PotRequest::new().with_content_binding("test_video");
 
-        let result = generate_pot(State(state), RequestJson(request)).await;
+        let result = generate_pot(State(state), Json(request)).await;
         assert!(result.is_ok());
 
         let response = result.unwrap();
@@ -405,7 +405,7 @@ mod tests {
         let state = create_test_state();
         let request = PotRequest::new(); // No content binding set
 
-        let result = generate_pot(State(state), RequestJson(request)).await;
+        let result = generate_pot(State(state), Json(request)).await;
         assert!(result.is_ok());
 
         let response = result.unwrap();

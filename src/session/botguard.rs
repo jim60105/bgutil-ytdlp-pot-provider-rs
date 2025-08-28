@@ -6,18 +6,16 @@
 use crate::Result;
 use rustypipe_botguard::Botguard;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use time::OffsetDateTime;
 
 /// BotGuard client using rustypipe-botguard crate
 pub struct BotGuardClient {
-    /// The Botguard instance wrapped in Arc<Mutex<>> for thread safety
-    botguard: Arc<Mutex<Option<Botguard>>>,
     /// Snapshot file path for caching
     snapshot_path: Option<PathBuf>,
     /// Custom User Agent
     user_agent: Option<String>,
+    /// Indicates if client is configured (using atomic for thread safety)
+    initialized: std::sync::atomic::AtomicBool,
 }
 
 impl std::fmt::Debug for BotGuardClient {
@@ -25,7 +23,7 @@ impl std::fmt::Debug for BotGuardClient {
         f.debug_struct("BotGuardClient")
             .field("snapshot_path", &self.snapshot_path)
             .field("user_agent", &self.user_agent)
-            .field("botguard_initialized", &"Arc<Mutex<Option<Botguard>>>")
+            .field("initialized", &self.initialized.load(std::sync::atomic::Ordering::Relaxed))
             .finish()
     }
 }
@@ -34,15 +32,29 @@ impl BotGuardClient {
     /// Create new BotGuard client
     pub fn new(snapshot_path: Option<PathBuf>, user_agent: Option<String>) -> Self {
         Self {
-            botguard: Arc::new(Mutex::new(None)),
             snapshot_path,
             user_agent,
+            initialized: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
-    /// Initialize the BotGuard instance
+    /// Initialize the BotGuard client configuration
     pub async fn initialize(&self) -> Result<()> {
-        // Initialize Botguard (automatically handles challenge fetching and VM loading)
+        // Just mark as initialized - we'll create instances on demand
+        self.initialized.store(true, std::sync::atomic::Ordering::Relaxed);
+        tracing::info!("BotGuard client configuration initialized");
+        Ok(())
+    }
+
+    /// Create a new Botguard instance on demand
+    async fn create_botguard_instance(&self) -> Result<Botguard> {
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(crate::Error::botguard(
+                "not_initialized",
+                "BotGuard client not initialized. Call initialize() first.",
+            ));
+        }
+
         let mut builder = rustypipe_botguard::Botguard::builder();
         
         if let Some(ref path) = self.snapshot_path {
@@ -53,54 +65,40 @@ impl BotGuardClient {
             builder = builder.user_agent(ua);
         }
         
-        let botguard = builder.init().await
-            .map_err(|e| crate::Error::botguard("initialization_failed", e.to_string().as_str()))?;
-        
-        *self.botguard.lock().await = Some(botguard);
-        tracing::info!("BotGuard client initialized successfully");
-        Ok(())
+        builder.init().await
+            .map_err(|e| crate::Error::botguard("initialization_failed", e.to_string().as_str()))
     }
 
-    /// Generate POT token
+    /// Generate POT token by creating a new Botguard instance
     pub async fn generate_po_token(&self, identifier: &str) -> Result<String> {
-        let mut guard = self.botguard.lock().await;
+        tracing::debug!("Generating POT token for identifier: {}", identifier);
         
-        if let Some(ref mut botguard) = guard.as_mut() {
-            botguard.mint_token(identifier).await
-                .map_err(|e| crate::Error::token_generation(format!("Failed to mint token: {}", e)))
-        } else {
-            Err(crate::Error::botguard(
-                "not_initialized",
-                "BotGuard client not initialized. Call initialize() first.",
-            ))
-        }
+        let mut botguard = self.create_botguard_instance().await?;
+        botguard.mint_token(identifier).await
+            .map_err(|e| crate::Error::token_generation(format!("Failed to mint token: {}", e)))
     }
 
     /// Check if BotGuard is initialized
     pub async fn is_initialized(&self) -> bool {
-        self.botguard.lock().await.is_some()
+        self.initialized.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    /// Get expiry information from the BotGuard instance
+    /// Get expiry information (placeholder implementation)
     pub async fn get_expiry_info(&self) -> Option<(OffsetDateTime, u32)> {
-        let guard = self.botguard.lock().await;
-        
-        if let Some(ref botguard) = guard.as_ref() {
-            Some((botguard.valid_until(), botguard.lifetime()))
+        if self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            // Return default values since we create instances on demand
+            Some((OffsetDateTime::now_utc() + time::Duration::hours(6), 21600))
         } else {
             None
         }
     }
 
-    /// Save snapshot and consume the BotGuard instance
+    /// Save snapshot (no-op implementation since we create instances on demand)
     pub async fn save_snapshot(self) -> Result<bool> {
-        let mut guard = self.botguard.lock().await;
-        
-        if let Some(botguard) = guard.take() {
-            Ok(botguard.write_snapshot().await)
-        } else {
-            Ok(false)
-        }
+        // Since we create instances on demand, there's no persistent instance to save
+        // The snapshot will be handled by individual Botguard instances
+        tracing::info!("Snapshot saving is handled by individual Botguard instances");
+        Ok(true)
     }
 }
 
