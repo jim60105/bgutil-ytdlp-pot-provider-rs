@@ -4,6 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
 
 // Import WebPoMinter
 use crate::session::WebPoMinter;
@@ -41,6 +42,82 @@ impl SessionData {
     /// Get time remaining until expiration
     pub fn time_until_expiry(&self) -> chrono::Duration {
         self.expires_at - Utc::now()
+    }
+}
+
+/// POT token types corresponding to different contexts
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PotTokenType {
+    /// Session-bound POT token using visitor_data as identifier
+    SessionBound,
+    /// Content-bound POT token using video_id as identifier
+    ContentBound,
+    /// Cold-start POT token using placeholder implementation
+    ColdStart,
+}
+
+impl Default for PotTokenType {
+    fn default() -> Self {
+        Self::SessionBound
+    }
+}
+
+/// Context for POT token generation
+#[derive(Debug, Clone)]
+pub struct PotContext {
+    /// Visitor data for session-bound tokens
+    pub visitor_data: String,
+    /// Video ID for content-bound tokens (optional)
+    pub video_id: Option<String>,
+    /// Token type to generate
+    pub token_type: PotTokenType,
+}
+
+impl PotContext {
+    /// Create new POT context
+    pub fn new(visitor_data: impl Into<String>, token_type: PotTokenType) -> Self {
+        Self {
+            visitor_data: visitor_data.into(),
+            video_id: None,
+            token_type,
+        }
+    }
+
+    /// Set video ID for content-bound tokens
+    pub fn with_video_id(mut self, video_id: impl Into<String>) -> Self {
+        self.video_id = Some(video_id.into());
+        self
+    }
+}
+
+/// POT token generation result
+#[derive(Debug, Clone)]
+pub struct PotTokenResult {
+    /// Generated POT token
+    pub po_token: String,
+    /// Token type
+    pub token_type: PotTokenType,
+    /// Expiration time
+    pub expires_at: SystemTime,
+}
+
+impl PotTokenResult {
+    /// Create new POT token result
+    pub fn new(
+        po_token: impl Into<String>,
+        token_type: PotTokenType,
+        expires_at: SystemTime,
+    ) -> Self {
+        Self {
+            po_token: po_token.into(),
+            token_type,
+            expires_at,
+        }
+    }
+
+    /// Check if the token has expired
+    pub fn is_expired(&self) -> bool {
+        SystemTime::now() > self.expires_at
     }
 }
 
@@ -373,5 +450,67 @@ mod tests {
 
         assert_eq!(session.po_token, deserialized.po_token);
         assert_eq!(session.content_binding, deserialized.content_binding);
+    }
+
+    #[test]
+    fn test_pot_token_type_serialization() {
+        let session_bound = PotTokenType::SessionBound;
+        let json = serde_json::to_string(&session_bound).unwrap();
+        assert_eq!(json, "\"SessionBound\"");
+
+        let content_bound = PotTokenType::ContentBound;
+        let json = serde_json::to_string(&content_bound).unwrap();
+        assert_eq!(json, "\"ContentBound\"");
+
+        let cold_start = PotTokenType::ColdStart;
+        let json = serde_json::to_string(&cold_start).unwrap();
+        assert_eq!(json, "\"ColdStart\"");
+    }
+
+    #[test]
+    fn test_pot_token_type_default() {
+        let default_type = PotTokenType::default();
+        assert_eq!(default_type, PotTokenType::SessionBound);
+    }
+
+    #[test]
+    fn test_pot_context_creation() {
+        let context = PotContext::new("test_visitor", PotTokenType::SessionBound);
+        assert_eq!(context.visitor_data, "test_visitor");
+        assert_eq!(context.token_type, PotTokenType::SessionBound);
+        assert_eq!(context.video_id, None);
+    }
+
+    #[test]
+    fn test_pot_context_with_video_id() {
+        let context = PotContext::new("test_visitor", PotTokenType::ContentBound)
+            .with_video_id("dQw4w9WgXcQ");
+
+        assert_eq!(context.visitor_data, "test_visitor");
+        assert_eq!(context.token_type, PotTokenType::ContentBound);
+        assert_eq!(context.video_id, Some("dQw4w9WgXcQ".to_string()));
+    }
+
+    #[test]
+    fn test_pot_token_result_creation() {
+        let expires_at = SystemTime::now() + std::time::Duration::from_secs(3600);
+        let result = PotTokenResult::new("test_token", PotTokenType::SessionBound, expires_at);
+
+        assert_eq!(result.po_token, "test_token");
+        assert_eq!(result.token_type, PotTokenType::SessionBound);
+        assert_eq!(result.expires_at, expires_at);
+        assert!(!result.is_expired());
+    }
+
+    #[test]
+    fn test_pot_token_result_expiration() {
+        let past_time = SystemTime::now() - std::time::Duration::from_secs(3600);
+        let future_time = SystemTime::now() + std::time::Duration::from_secs(3600);
+
+        let expired_result = PotTokenResult::new("token", PotTokenType::SessionBound, past_time);
+        let valid_result = PotTokenResult::new("token", PotTokenType::SessionBound, future_time);
+
+        assert!(expired_result.is_expired());
+        assert!(!valid_result.is_expired());
     }
 }
