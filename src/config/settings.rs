@@ -69,6 +69,14 @@ fn default_memory_cache_size() -> usize {
     100
 }
 
+fn default_pot_cache_duration() -> u64 {
+    1800 // 30 minutes
+}
+
+fn default_pot_generation_timeout() -> u64 {
+    30 // 30 seconds
+}
+
 // Duration serialization module
 mod duration_secs {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -145,6 +153,15 @@ pub struct TokenSettings {
     /// Cache cleanup interval in minutes
     #[serde(default = "default_cache_cleanup_interval")]
     pub cache_cleanup_interval: u64,
+    /// POT Token cache duration in seconds
+    #[serde(default = "default_pot_cache_duration")]
+    pub pot_cache_duration: u64,
+    /// Enable POT token fallback to placeholder
+    #[serde(default = "default_true")]
+    pub enable_pot_fallback: bool,
+    /// POT token generation timeout in seconds
+    #[serde(default = "default_pot_generation_timeout")]
+    pub pot_generation_timeout: u64,
 }
 
 /// Logging configuration
@@ -258,6 +275,9 @@ impl Default for TokenSettings {
             enable_cache: default_true(),
             max_cache_entries: default_max_cache_entries(),
             cache_cleanup_interval: default_cache_cleanup_interval(),
+            pot_cache_duration: default_pot_cache_duration(),
+            enable_pot_fallback: default_true(),
+            pot_generation_timeout: default_pot_generation_timeout(),
         }
     }
 }
@@ -502,6 +522,11 @@ mod tests {
         assert_eq!(settings.token.ttl_hours, 6);
         assert!(settings.token.enable_cache);
         assert_eq!(settings.botguard.request_key, "O43z0dpjhgX20SCx4KAo");
+        
+        // Test new POT-specific settings
+        assert_eq!(settings.token.pot_cache_duration, 1800);
+        assert!(settings.token.enable_pot_fallback);
+        assert_eq!(settings.token.pot_generation_timeout, 30);
     }
 
     #[test]
