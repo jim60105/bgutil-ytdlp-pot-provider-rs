@@ -6,6 +6,87 @@ This document provides comprehensive reference for the BgUtils POT Provider Rust
 
 ### POST /get_pot
 
+Generate a POT token for the specified content.
+
+**Request Body:**
+```json
+{
+  "content_binding": "video_id_or_content_identifier",
+  "visitor_data": "optional_visitor_data",
+  "data_sync_id": "optional_data_sync_id"
+}
+```
+
+**Response:**
+```json
+{
+  "po_token": "actual_bot_guard_generated_token",
+  "expires_at": "2024-01-01T12:00:00Z"
+}
+```
+
+**Status Codes:**
+- `200 OK`: Token generated successfully
+- `400 Bad Request`: Invalid request format or missing required fields
+- `500 Internal Server Error`: BotGuard generation failed
+- `503 Service Unavailable`: BotGuard client not initialized
+
+### GET /ping
+
+Health check endpoint.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "message": "BgUtils POT Provider is running"
+}
+```
+
+### POST /invalidate_caches
+
+Clear all internal caches.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "message": "Caches invalidated successfully"
+}
+```
+
+### POST /invalidate_it
+
+Invalidate integrity tokens (legacy compatibility).
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "message": "Integrity tokens invalidated"
+}
+```
+
+### GET /minter_cache
+
+Get minter cache status information.
+
+**Response:**
+```json
+{
+  "cache_size": 42,
+  "cache_entries": [
+    {
+      "content_binding": "video_id",
+      "expires_at": "2024-01-01T12:00:00Z",
+      "created_at": "2024-01-01T06:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /get_pot
+
 Generate or retrieve a cached POT token.
 
 **Request Format:**
@@ -151,21 +232,20 @@ bgutil-pot-server [OPTIONS]
 ```
 
 **Options:**
-- `--bind <ADDRESS>`: Bind address (default: 127.0.0.1)
+- `--host <HOST>`: Server bind address (default: ::)
 - `--port <PORT>`: Listen port (default: 4416)
 - `--config <FILE>`: Configuration file path
-- `--log-level <LEVEL>`: Logging level (error, warn, info, debug, trace)
 - `--verbose`: Enable verbose logging
 - `--help`: Show help information
 - `--version`: Show version information
 
 **Examples:**
 ```bash
-# Start with default settings
+# Start with default settings (IPv6 with IPv4 fallback)
 bgutil-pot-server
 
-# Custom bind address and port
-bgutil-pot-server --bind 0.0.0.0 --port 8080
+# Custom host and port
+bgutil-pot-server --host 127.0.0.1 --port 8080
 
 # With verbose logging
 bgutil-pot-server --verbose
