@@ -5,18 +5,10 @@
 
 use bgutil_ytdlp_pot_provider::{
     config::Settings,
-    session::{JsRuntimeHandle, SessionManager, WebPoMinter},
+    session::SessionManager,
     types::{PotRequest, TokenMinterEntry},
 };
 use chrono::{Duration, Utc};
-
-/// Helper function to create a test WebPoMinter
-fn create_test_webpo_minter() -> WebPoMinter {
-    WebPoMinter {
-        mint_callback_ref: "test_callback".to_string(),
-        runtime_handle: JsRuntimeHandle::new_for_test(),
-    }
-}
 
 #[tokio::test]
 async fn test_enhanced_session_manager_flow() {
@@ -98,14 +90,12 @@ async fn test_enhanced_proxy_configuration() {
 async fn test_token_minter_entry_functionality() {
     // Test TokenMinterEntry which matches TypeScript TokenMinter interface
     let expires_at = Utc::now() + Duration::hours(1);
-    let test_minter = create_test_webpo_minter();
     let minter = TokenMinterEntry::new(
         expires_at,
         "test_integrity_token",
         3600,
         300,
         Some("websafe_fallback".to_string()),
-        test_minter,
     );
 
     assert_eq!(minter.integrity_token, "test_integrity_token");

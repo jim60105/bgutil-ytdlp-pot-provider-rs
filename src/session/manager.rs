@@ -482,27 +482,13 @@ where
 
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 
-        // Create placeholder WebPoMinter for now
-        let placeholder_minter = self.create_placeholder_webpo_minter();
-
         Ok(TokenMinterEntry::new(
             expires_at,
             "placeholder_integrity_token",
             3600,
             300,
             None,
-            placeholder_minter,
         ))
-    }
-
-    /// Create a placeholder WebPoMinter for testing
-    fn create_placeholder_webpo_minter(&self) -> crate::session::WebPoMinter {
-        use crate::session::webpo_minter::JsRuntimeHandle;
-
-        crate::session::WebPoMinter {
-            mint_callback_ref: "placeholder_callback".to_string(),
-            runtime_handle: JsRuntimeHandle::new_for_test(),
-        }
     }
 
     /// Initialize BotGuard client
