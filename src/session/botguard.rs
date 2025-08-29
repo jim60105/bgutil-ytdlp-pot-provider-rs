@@ -111,13 +111,63 @@ impl BotGuardClient {
         self.initialized.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    /// Get expiry information (placeholder implementation)
+    /// Get expiry information from a real BotGuard instance
     pub async fn get_expiry_info(&self) -> Option<(OffsetDateTime, u32)> {
-        if self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
-            // Return default values since we create instances on demand
-            Some((OffsetDateTime::now_utc() + time::Duration::hours(6), 21600))
-        } else {
-            None
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            return None;
+        }
+
+        // Acquire global mutex to serialize BotGuard operations
+        let _guard = BOTGUARD_MUTEX.lock().await;
+
+        let snapshot_path = self.snapshot_path.clone();
+        let user_agent = self.user_agent.clone();
+
+        // Use spawn_blocking to run BotGuard operations on a dedicated thread
+        let result = tokio::task::spawn_blocking(move || {
+            // Create a simple blocking runtime for the Botguard operations
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| format!("Runtime creation failed: {}", e))?;
+
+            rt.block_on(async move {
+                let mut builder = rustypipe_botguard::Botguard::builder();
+
+                if let Some(ref path) = snapshot_path {
+                    builder = builder.snapshot_path(path);
+                }
+
+                if let Some(ref ua) = user_agent {
+                    builder = builder.user_agent(ua);
+                }
+
+                let botguard = builder
+                    .init()
+                    .await
+                    .map_err(|e| format!("BotGuard initialization failed: {}", e))?;
+
+                // Get real expiry information from BotGuard instance
+                let lifetime = botguard.lifetime();
+                let valid_until = botguard.valid_until();
+
+                Ok::<(OffsetDateTime, u32), String>((valid_until, lifetime))
+            })
+        })
+        .await;
+
+        match result {
+            Ok(Ok((valid_until, lifetime))) => Some((valid_until, lifetime)),
+            Ok(Err(e)) => {
+                tracing::warn!("Failed to get BotGuard expiry info: {}", e);
+                // Fallback to default values
+                Some((OffsetDateTime::now_utc() + time::Duration::hours(6), 21600))
+            }
+            Err(e) => {
+                tracing::warn!("Task join error getting BotGuard expiry info: {}", e);
+                // Fallback to default values
+                Some((OffsetDateTime::now_utc() + time::Duration::hours(6), 21600))
+            }
         }
     }
 

@@ -470,7 +470,7 @@ where
         Ok(new_minter)
     }
 
-    /// Generate new token minter
+    /// Generate token minter using real BotGuard integration
     ///
     /// Corresponds to TypeScript: `generateTokenMinter` method (L318-408)
     async fn generate_token_minter(
@@ -478,16 +478,53 @@ where
         _request: &PotRequest,
         _proxy_spec: &ProxySpec,
     ) -> Result<TokenMinterEntry> {
-        tracing::info!("Generating token minter (placeholder implementation)");
+        tracing::info!("Generating real token minter with BotGuard integration");
 
-        let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
+        // Initialize BotGuard client if needed
+        self.initialize_botguard().await?;
+
+        // Get real expiry information from BotGuard
+        let expiry_info = self
+            .botguard_client
+            .get_expiry_info()
+            .await
+            .ok_or_else(|| crate::Error::token_generation("Cannot get BotGuard expiry info"))?;
+
+        let (valid_until, lifetime_secs) = expiry_info;
+
+        // Convert time::OffsetDateTime to chrono::DateTime<Utc>
+        let expires_at = chrono::DateTime::<chrono::Utc>::from_timestamp(
+            valid_until.unix_timestamp(),
+            valid_until.nanosecond(),
+        )
+        .ok_or_else(|| crate::Error::token_generation("Invalid timestamp from BotGuard"))?;
+
+        // Generate an integrity token using BotGuard
+        // For TokenMinter, we use a specific identifier that indicates this is for integrity purposes
+        let integrity_token = self
+            .botguard_client
+            .generate_po_token("integrity_token_request")
+            .await
+            .map_err(|e| {
+                crate::Error::token_generation(format!("Failed to generate integrity token: {}", e))
+            })?;
+
+        // Calculate mint refresh threshold (5 minutes before expiry)
+        let mint_refresh_threshold = std::cmp::min(300, lifetime_secs / 2);
+
+        tracing::info!(
+            "Generated real TokenMinter - expires at: {}, lifetime: {}s, threshold: {}s",
+            expires_at,
+            lifetime_secs,
+            mint_refresh_threshold
+        );
 
         Ok(TokenMinterEntry::new(
             expires_at,
-            "placeholder_integrity_token",
-            3600,
-            300,
-            None,
+            integrity_token,
+            lifetime_secs,
+            mint_refresh_threshold,
+            None, // No websafe fallback token for now
         ))
     }
 
