@@ -175,6 +175,21 @@ pub enum Error {
     #[error("Token generation error: {0}")]
     TokenGenerationLegacy(String),
 
+    /// POT token specific errors
+    #[error("Missing video ID for content-bound POT token")]
+    MissingVideoId,
+
+    /// POT token format validation errors
+    #[error("Invalid POT token format: {token}")]
+    InvalidPotToken {
+        /// The invalid token
+        token: String,
+    },
+
+    /// POT token expiration errors
+    #[error("POT token expired")]
+    TokenExpired,
+
     /// BotGuard related errors (legacy)
     #[error("BotGuard error: {message}")]
     BotGuardLegacy {
@@ -375,6 +390,9 @@ impl Error {
             Error::Server(..) => "server",
             Error::Session(..) => "session",
             Error::TokenGenerationLegacy(..) => "token_generation",
+            Error::MissingVideoId => "pot_token",
+            Error::InvalidPotToken { .. } => "pot_token", 
+            Error::TokenExpired => "pot_token",
             Error::BotGuardLegacy { .. } => "botguard",
             Error::CacheLegacy { .. } => "cache",
             Error::IntegrityTokenLegacy { .. } => "integrity_token",
@@ -454,6 +472,23 @@ impl Error {
             message: msg.into(),
             context: None,
         }
+    }
+
+    /// Create a missing video ID error
+    pub fn missing_video_id() -> Self {
+        Self::MissingVideoId
+    }
+
+    /// Create an invalid POT token format error
+    pub fn invalid_pot_token(token: impl Into<String>) -> Self {
+        Self::InvalidPotToken {
+            token: token.into(),
+        }
+    }
+
+    /// Create a token expired error
+    pub fn token_expired() -> Self {
+        Self::TokenExpired
     }
 }
 
