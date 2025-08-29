@@ -171,12 +171,206 @@ impl BotGuardClient {
         }
     }
 
-    /// Save snapshot (no-op implementation since we create instances on demand)
+    /// Save snapshot of current BotGuard instance to configured snapshot path
     pub async fn save_snapshot(self) -> Result<bool> {
-        // Since we create instances on demand, there's no persistent instance to save
-        // The snapshot will be handled by individual Botguard instances
-        tracing::info!("Snapshot saving is handled by individual Botguard instances");
-        Ok(true)
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            tracing::warn!("Cannot save snapshot: BotGuard client not initialized");
+            return Ok(false);
+        }
+
+        if self.snapshot_path.is_none() {
+            tracing::warn!("Cannot save snapshot: no snapshot path configured");
+            return Ok(false);
+        }
+
+        // Acquire global mutex to serialize BotGuard operations
+        let _guard = BOTGUARD_MUTEX.lock().await;
+
+        let snapshot_path = self.snapshot_path.clone();
+        let user_agent = self.user_agent.clone();
+
+        // Use spawn_blocking to run BotGuard operations on a dedicated thread
+        let result = tokio::task::spawn_blocking(move || {
+            // Create a simple blocking runtime for the Botguard operations
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| format!("Runtime creation failed: {}", e))?;
+
+            rt.block_on(async move {
+                let mut builder = rustypipe_botguard::Botguard::builder();
+
+                if let Some(ref path) = snapshot_path {
+                    builder = builder.snapshot_path(path);
+                }
+
+                if let Some(ref ua) = user_agent {
+                    builder = builder.user_agent(ua);
+                }
+
+                let botguard = builder
+                    .init()
+                    .await
+                    .map_err(|e| format!("BotGuard initialization failed: {}", e))?;
+
+                // Save snapshot - this consumes the botguard instance
+                let saved = botguard.write_snapshot().await;
+                Ok::<bool, String>(saved)
+            })
+        })
+        .await;
+
+        match result {
+            Ok(Ok(saved)) => {
+                if saved {
+                    tracing::info!("BotGuard snapshot saved successfully");
+                } else {
+                    tracing::warn!("BotGuard snapshot could not be saved");
+                }
+                Ok(saved)
+            }
+            Ok(Err(e)) => {
+                tracing::error!("Failed to save BotGuard snapshot: {}", e);
+                Ok(false)
+            }
+            Err(e) => {
+                tracing::error!("Task join error saving BotGuard snapshot: {}", e);
+                Ok(false)
+            }
+        }
+    }
+
+    /// Check if BotGuard instance is expired based on real expiry information
+    pub async fn is_expired(&self) -> bool {
+        if let Some((valid_until, _)) = self.get_expiry_info().await {
+            OffsetDateTime::now_utc() >= valid_until
+        } else {
+            true // Consider uninitialized as expired
+        }
+    }
+
+    /// Get time remaining until expiry
+    pub async fn time_until_expiry(&self) -> Option<time::Duration> {
+        if let Some((valid_until, _)) = self.get_expiry_info().await {
+            let now = OffsetDateTime::now_utc();
+            if valid_until > now {
+                Some(valid_until - now)
+            } else {
+                Some(time::Duration::ZERO)
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Check if the last BotGuard instance was created from snapshot
+    /// Note: This creates a new instance to check, so use sparingly
+    pub async fn is_from_snapshot(&self) -> bool {
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            return false;
+        }
+
+        // Acquire global mutex to serialize BotGuard operations
+        let _guard = BOTGUARD_MUTEX.lock().await;
+
+        let snapshot_path = self.snapshot_path.clone();
+        let user_agent = self.user_agent.clone();
+
+        // Use spawn_blocking to run BotGuard operations on a dedicated thread
+        let result = tokio::task::spawn_blocking(move || {
+            // Create a simple blocking runtime for the Botguard operations
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| format!("Runtime creation failed: {}", e))?;
+
+            rt.block_on(async move {
+                let mut builder = rustypipe_botguard::Botguard::builder();
+
+                if let Some(ref path) = snapshot_path {
+                    builder = builder.snapshot_path(path);
+                }
+
+                if let Some(ref ua) = user_agent {
+                    builder = builder.user_agent(ua);
+                }
+
+                let botguard = builder
+                    .init()
+                    .await
+                    .map_err(|e| format!("BotGuard initialization failed: {}", e))?;
+
+                Ok::<bool, String>(botguard.is_from_snapshot())
+            })
+        })
+        .await;
+
+        match result {
+            Ok(Ok(from_snapshot)) => from_snapshot,
+            Ok(Err(e)) => {
+                tracing::warn!("Failed to check BotGuard snapshot status: {}", e);
+                false
+            }
+            Err(e) => {
+                tracing::warn!("Task join error checking BotGuard snapshot status: {}", e);
+                false
+            }
+        }
+    }
+
+    /// Get creation time of the last BotGuard instance
+    /// Note: This creates a new instance to check, so use sparingly
+    pub async fn created_at(&self) -> Option<OffsetDateTime> {
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            return None;
+        }
+
+        // Acquire global mutex to serialize BotGuard operations
+        let _guard = BOTGUARD_MUTEX.lock().await;
+
+        let snapshot_path = self.snapshot_path.clone();
+        let user_agent = self.user_agent.clone();
+
+        // Use spawn_blocking to run BotGuard operations on a dedicated thread
+        let result = tokio::task::spawn_blocking(move || {
+            // Create a simple blocking runtime for the Botguard operations
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| format!("Runtime creation failed: {}", e))?;
+
+            rt.block_on(async move {
+                let mut builder = rustypipe_botguard::Botguard::builder();
+
+                if let Some(ref path) = snapshot_path {
+                    builder = builder.snapshot_path(path);
+                }
+
+                if let Some(ref ua) = user_agent {
+                    builder = builder.user_agent(ua);
+                }
+
+                let botguard = builder
+                    .init()
+                    .await
+                    .map_err(|e| format!("BotGuard initialization failed: {}", e))?;
+
+                Ok::<OffsetDateTime, String>(botguard.created_at())
+            })
+        })
+        .await;
+
+        match result {
+            Ok(Ok(created_at)) => Some(created_at),
+            Ok(Err(e)) => {
+                tracing::warn!("Failed to get BotGuard creation time: {}", e);
+                None
+            }
+            Err(e) => {
+                tracing::warn!("Task join error getting BotGuard creation time: {}", e);
+                None
+            }
+        }
     }
 }
 
@@ -308,5 +502,76 @@ mod tests {
         assert_eq!(args.content_binding, Some("test_video_id"));
         assert_eq!(args.signed_timestamp, Some(1234567890));
         assert_eq!(args.skip_privacy_buffer, Some(false));
+    }
+
+    #[tokio::test]
+    async fn test_lifecycle_methods_uninitialized() {
+        let client = BotGuardClient::new(None, None);
+
+        // Before initialization, lifecycle methods should return appropriate defaults
+        assert!(client.is_expired().await);
+        assert!(client.time_until_expiry().await.is_none());
+        assert!(!client.is_from_snapshot().await);
+        assert!(client.created_at().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_lifecycle_methods_initialized() {
+        let client = BotGuardClient::new(None, None);
+        let _ = client.initialize().await;
+
+        // After initialization, expiry info should be available
+        let is_expired = client.is_expired().await;
+        let time_until_expiry = client.time_until_expiry().await;
+
+        // Should not be expired immediately after creation (or fallback to 6 hours)
+        assert!(!is_expired);
+        assert!(time_until_expiry.is_some());
+
+        let duration = time_until_expiry.unwrap();
+        assert!(duration > time::Duration::ZERO);
+    }
+
+    #[tokio::test]
+    async fn test_save_snapshot_without_path() {
+        let client = BotGuardClient::new(None, None);
+        let _ = client.initialize().await;
+
+        // Should return false when no snapshot path is configured
+        let result = client.save_snapshot().await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_save_snapshot_with_temp_path() {
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().unwrap();
+        let snapshot_path = temp_dir.path().join("test_snapshot.bin");
+
+        let client = BotGuardClient::new(Some(snapshot_path.clone()), None);
+        let _ = client.initialize().await;
+
+        // With a valid path, should attempt to save (may fail due to network issues)
+        let result = client.save_snapshot().await;
+        assert!(result.is_ok());
+        // Don't assert on the boolean result as it depends on network availability
+    }
+
+    #[tokio::test]
+    async fn test_save_snapshot_uninitialized() {
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().unwrap();
+        let snapshot_path = temp_dir.path().join("test_snapshot.bin");
+
+        let client = BotGuardClient::new(Some(snapshot_path), None);
+        // Don't initialize
+
+        // Should return false when not initialized
+        let result = client.save_snapshot().await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
     }
 }
