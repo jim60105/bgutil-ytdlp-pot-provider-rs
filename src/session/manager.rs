@@ -48,7 +48,10 @@
 use crate::{
     Result,
     config::Settings,
-    types::{PotRequest, PotResponse, SessionData, TokenMinterEntry, PotContext, PotTokenType, PotTokenResult},
+    types::{
+        PotContext, PotRequest, PotResponse, PotTokenResult, PotTokenType, SessionData,
+        TokenMinterEntry,
+    },
 };
 use chrono::{DateTime, Duration, Utc};
 use reqwest::Client;
@@ -532,7 +535,7 @@ where
 
         // Determine token type and create context based on content_binding
         let context = self.create_pot_context(content_binding).await?;
-        
+
         // Generate POT token with fallback
         let result = self.try_mint_pot_with_fallback(&context).await?;
 
@@ -540,14 +543,18 @@ where
 
         tracing::info!("Generated POT token: {}", result.po_token);
 
-        Ok(SessionData::new(result.po_token, content_binding, expires_at))
+        Ok(SessionData::new(
+            result.po_token,
+            content_binding,
+            expires_at,
+        ))
     }
 
     /// Create POT context from content binding
     async fn create_pot_context(&self, content_binding: &str) -> Result<PotContext> {
         // Analyze content_binding to determine token type
         let token_type = self.determine_token_type(content_binding);
-        
+
         let visitor_data = match token_type {
             PotTokenType::SessionBound | PotTokenType::ColdStart => {
                 // For session-bound tokens, use content_binding as visitor_data if it looks like visitor data
@@ -565,7 +572,7 @@ where
         };
 
         let mut context = PotContext::new(visitor_data, token_type);
-        
+
         // Set video_id for content-bound tokens
         if token_type == PotTokenType::ContentBound {
             if self.is_video_id_format(content_binding) {
@@ -593,13 +600,17 @@ where
     /// Check if string looks like a YouTube video ID
     fn is_video_id_format(&self, s: &str) -> bool {
         // YouTube video IDs are typically 11 characters, alphanumeric plus - and _
-        s.len() == 11 && s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        s.len() == 11
+            && s.chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     }
 
     /// Check if string looks like visitor data
     fn is_visitor_data_format(&self, s: &str) -> bool {
         // Visitor data is typically longer and contains specific patterns
-        s.len() > 15 && s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        s.len() > 15
+            && s.chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     }
 
     /// Try to mint POT token with fallback mechanism
@@ -609,7 +620,10 @@ where
             Ok(result) => Ok(result),
             Err(e) => {
                 // Fallback: use placeholder token
-                tracing::warn!("POT token generation failed, falling back to placeholder: {}", e);
+                tracing::warn!(
+                    "POT token generation failed, falling back to placeholder: {}",
+                    e
+                );
                 let po_token = self.generate_placeholder_token(&context.visitor_data)?;
                 Ok(PotTokenResult::new(
                     po_token,
@@ -623,15 +637,9 @@ where
     /// Main POT token generation method
     pub async fn try_mint_pot(&self, context: &PotContext) -> Result<PotTokenResult> {
         match context.token_type {
-            PotTokenType::SessionBound => {
-                self.generate_session_bound_token(context).await
-            }
-            PotTokenType::ContentBound => {
-                self.generate_content_bound_token(context).await
-            }
-            PotTokenType::ColdStart => {
-                self.generate_cold_start_token(context).await
-            }
+            PotTokenType::SessionBound => self.generate_session_bound_token(context).await,
+            PotTokenType::ContentBound => self.generate_content_bound_token(context).await,
+            PotTokenType::ColdStart => self.generate_cold_start_token(context).await,
         }
     }
 
@@ -643,7 +651,8 @@ where
         }
 
         // Use visitor_data as identifier
-        let po_token = self.botguard_client
+        let po_token = self
+            .botguard_client
             .generate_po_token(&context.visitor_data)
             .await?;
 
@@ -651,7 +660,8 @@ where
         self.validate_po_token(&po_token)?;
 
         // Get token expiry info
-        let expires_at = SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
+        let expires_at =
+            SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
 
         Ok(PotTokenResult::new(
             po_token,
@@ -663,8 +673,10 @@ where
     /// Generate content-bound POT token using video_id as identifier
     async fn generate_content_bound_token(&self, context: &PotContext) -> Result<PotTokenResult> {
         // Ensure we have video_id
-        let video_id = context.video_id.as_ref()
-            .ok_or_else(|| crate::Error::missing_video_id())?;
+        let video_id = context
+            .video_id
+            .as_ref()
+            .ok_or_else(crate::Error::missing_video_id)?;
 
         // Ensure BotGuard is initialized
         if !self.botguard_client.is_initialized().await {
@@ -672,15 +684,14 @@ where
         }
 
         // Use video_id as identifier
-        let po_token = self.botguard_client
-            .generate_po_token(video_id)
-            .await?;
+        let po_token = self.botguard_client.generate_po_token(video_id).await?;
 
         // Validate the generated token
         self.validate_po_token(&po_token)?;
 
         // Get token expiry info
-        let expires_at = SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
+        let expires_at =
+            SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
 
         Ok(PotTokenResult::new(
             po_token,
@@ -694,7 +705,8 @@ where
         // Cold-start tokens use placeholder implementation
         let po_token = self.generate_placeholder_token(&context.visitor_data)?;
 
-        let expires_at = SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
+        let expires_at =
+            SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
 
         Ok(PotTokenResult::new(
             po_token,
@@ -717,7 +729,7 @@ where
         let base_token = format!("placeholderPOT_{:016x}_{}", hash, visitor_data.len());
         let padding = "A".repeat(110 - base_token.len().min(110));
         let token = format!("{}{}", base_token, padding);
-        
+
         // Ensure it's within the valid POT token length range
         Ok(token.chars().take(120).collect())
     }
@@ -730,7 +742,10 @@ where
         }
 
         // POT tokens should contain only alphanumeric characters, -, and _
-        if !token.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        if !token
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
             return Err(crate::Error::invalid_pot_token(token));
         }
 
@@ -1114,14 +1129,20 @@ mod tests {
         assert!(token.len() <= 128);
 
         // Should contain only valid characters
-        assert!(token.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_'));
+        assert!(
+            token
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        );
 
         // Should be deterministic for same input
         let token2 = manager.generate_placeholder_token(visitor_data).unwrap();
         assert_eq!(token, token2);
 
         // Should be different for different input
-        let token3 = manager.generate_placeholder_token("different_visitor_data").unwrap();
+        let token3 = manager
+            .generate_placeholder_token("different_visitor_data")
+            .unwrap();
         assert_ne!(token, token3);
     }
 
@@ -1169,7 +1190,7 @@ mod tests {
         // Content-bound context without video_id should fail
         let context = PotContext::new("test_visitor", PotTokenType::ContentBound);
         let result = manager.generate_content_bound_token(&context).await;
-        
+
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), crate::Error::MissingVideoId));
     }

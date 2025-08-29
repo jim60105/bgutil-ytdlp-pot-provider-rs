@@ -522,7 +522,7 @@ mod tests {
         assert_eq!(settings.token.ttl_hours, 6);
         assert!(settings.token.enable_cache);
         assert_eq!(settings.botguard.request_key, "O43z0dpjhgX20SCx4KAo");
-        
+
         // Test new POT-specific settings
         assert_eq!(settings.token.pot_cache_duration, 1800);
         assert!(settings.token.enable_pot_fallback);

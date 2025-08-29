@@ -485,7 +485,7 @@ mod tests {
     fn test_pot_context_with_video_id() {
         let context = PotContext::new("test_visitor", PotTokenType::ContentBound)
             .with_video_id("dQw4w9WgXcQ");
-        
+
         assert_eq!(context.visitor_data, "test_visitor");
         assert_eq!(context.token_type, PotTokenType::ContentBound);
         assert_eq!(context.video_id, Some("dQw4w9WgXcQ".to_string()));

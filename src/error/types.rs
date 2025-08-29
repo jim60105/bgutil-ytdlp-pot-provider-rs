@@ -391,7 +391,7 @@ impl Error {
             Error::Session(..) => "session",
             Error::TokenGenerationLegacy(..) => "token_generation",
             Error::MissingVideoId => "pot_token",
-            Error::InvalidPotToken { .. } => "pot_token", 
+            Error::InvalidPotToken { .. } => "pot_token",
             Error::TokenExpired => "pot_token",
             Error::BotGuardLegacy { .. } => "botguard",
             Error::CacheLegacy { .. } => "cache",
