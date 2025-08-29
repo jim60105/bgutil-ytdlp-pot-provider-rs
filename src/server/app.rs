@@ -61,8 +61,7 @@ mod tests {
         let settings = Settings::default();
         let _app = create_app(settings);
 
-        // The app should be created successfully
-        // More detailed testing would require setting up a test server
-        assert!(true); // Placeholder assertion
+        // Test passes if create_app doesn't panic during Router construction
+        // The Router type itself validates correct configuration at compile time
     }
 }

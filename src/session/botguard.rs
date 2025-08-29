@@ -379,42 +379,6 @@ impl BotGuardClient {
 unsafe impl Send for BotGuardClient {}
 unsafe impl Sync for BotGuardClient {}
 
-/// Placeholder for backward compatibility - will be removed
-/// This maintains the interface for existing code during transition
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct BotGuardManager {
-    client: BotGuardClient,
-}
-
-impl BotGuardManager {
-    /// Create new BotGuard manager (legacy interface)
-    pub fn new(_http_client: reqwest::Client, _request_key: String) -> Self {
-        Self {
-            client: BotGuardClient::new(None, None),
-        }
-    }
-
-    /// Get BotGuard manager configuration for diagnostics
-    pub fn get_manager_info(&self) -> (String, bool) {
-        ("legacy_manager".to_string(), true)
-    }
-}
-
-/// Arguments for BotGuard snapshot generation
-/// Kept for backward compatibility with existing tests
-#[derive(Debug)]
-pub struct SnapshotArgs<'a> {
-    /// Content binding (video ID)
-    pub content_binding: Option<&'a str>,
-    /// Signed timestamp
-    pub signed_timestamp: Option<u64>,
-    /// WebPO signal output buffer (for compatibility only)
-    pub webpo_signal_output: Option<&'a str>, // Changed to &str for simplicity
-    /// Skip privacy buffer flag
-    pub skip_privacy_buffer: Option<bool>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -443,16 +407,6 @@ mod tests {
         let result = client.generate_po_token("test_identifier").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not initialized"));
-    }
-
-    #[tokio::test]
-    async fn test_botguard_manager_legacy_interface() {
-        let client = reqwest::Client::new();
-        let manager = BotGuardManager::new(client, "test_key".to_string());
-
-        let (key, has_client) = manager.get_manager_info();
-        assert_eq!(key, "legacy_manager");
-        assert!(has_client);
     }
 
     // Real integration test - may fail if network is unavailable
@@ -488,20 +442,6 @@ mod tests {
         } else {
             println!("BotGuard initialization failed or timed out");
         }
-    }
-
-    #[tokio::test]
-    async fn test_snapshot_args_creation() {
-        let args = SnapshotArgs {
-            content_binding: Some("test_video_id"),
-            signed_timestamp: Some(1234567890),
-            webpo_signal_output: Some("test_output"),
-            skip_privacy_buffer: Some(false),
-        };
-
-        assert_eq!(args.content_binding, Some("test_video_id"));
-        assert_eq!(args.signed_timestamp, Some(1234567890));
-        assert_eq!(args.skip_privacy_buffer, Some(false));
     }
 
     #[tokio::test]

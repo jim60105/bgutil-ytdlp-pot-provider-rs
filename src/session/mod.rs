@@ -9,7 +9,7 @@ pub mod innertube;
 pub mod manager;
 pub mod network;
 
-pub use botguard::{BotGuardManager, SnapshotArgs};
+pub use botguard::BotGuardClient;
 pub use innertube::{InnertubeClient, InnertubeProvider};
 pub use manager::{SessionManager, SessionManagerGeneric};
 pub use network::{NetworkManager, ProxySpec, RequestOptions};
