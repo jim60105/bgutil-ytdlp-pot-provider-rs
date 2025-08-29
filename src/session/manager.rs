@@ -613,25 +613,10 @@ where
                 .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     }
 
-    /// Try to mint POT token with fallback mechanism
+    /// Try to mint POT token using BotGuard integration only
     pub async fn try_mint_pot_with_fallback(&self, context: &PotContext) -> Result<PotTokenResult> {
-        // Main method: use rustypipe-botguard
-        match self.try_mint_pot(context).await {
-            Ok(result) => Ok(result),
-            Err(e) => {
-                // Fallback: use placeholder token
-                tracing::warn!(
-                    "POT token generation failed, falling back to placeholder: {}",
-                    e
-                );
-                let po_token = self.generate_placeholder_token(&context.visitor_data)?;
-                Ok(PotTokenResult::new(
-                    po_token,
-                    context.token_type,
-                    SystemTime::now() + std::time::Duration::from_secs(1800), // 30 min shorter TTL
-                ))
-            }
-        }
+        // Use rustypipe-botguard only - no fallback to placeholder tokens
+        self.try_mint_pot(context).await
     }
 
     /// Main POT token generation method
@@ -700,10 +685,21 @@ where
         ))
     }
 
-    /// Generate cold-start POT token using placeholder implementation
+    /// Generate cold-start POT token using BotGuard
     async fn generate_cold_start_token(&self, context: &PotContext) -> Result<PotTokenResult> {
-        // Cold-start tokens use placeholder implementation
-        let po_token = self.generate_placeholder_token(&context.visitor_data)?;
+        // Ensure BotGuard is initialized
+        if !self.botguard_client.is_initialized().await {
+            self.initialize_botguard().await?;
+        }
+
+        // Use visitor_data as identifier for cold-start tokens
+        let po_token = self
+            .botguard_client
+            .generate_po_token(&context.visitor_data)
+            .await?;
+
+        // Validate the generated token
+        self.validate_po_token(&po_token)?;
 
         let expires_at =
             SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
@@ -715,36 +711,18 @@ where
         ))
     }
 
-    /// Generate a placeholder POT token for testing/fallback
-    fn generate_placeholder_token(&self, visitor_data: &str) -> Result<String> {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        // Create a deterministic but fake POT token based on visitor_data
-        let mut hasher = DefaultHasher::new();
-        visitor_data.hash(&mut hasher);
-        let hash = hasher.finish();
-
-        // Generate a token that looks like a real POT token (110-128 chars base64-like)
-        let base_token = format!("placeholderPOT_{:016x}_{}", hash, visitor_data.len());
-        let padding = "A".repeat(110 - base_token.len().min(110));
-        let token = format!("{}{}", base_token, padding);
-
-        // Ensure it's within the valid POT token length range
-        Ok(token.chars().take(120).collect())
-    }
-
     /// Validate POT token format
     fn validate_po_token(&self, token: &str) -> Result<()> {
-        // POT tokens should be 110-128 characters long
-        if token.len() < 110 || token.len() > 128 {
+        // POT tokens should be at least 80 characters and at most 150 characters
+        // Updated range to accommodate real BotGuard tokens which can vary
+        if token.len() < 80 || token.len() > 150 {
             return Err(crate::Error::invalid_pot_token(token));
         }
 
-        // POT tokens should contain only alphanumeric characters, -, and _
+        // POT tokens should contain only base64-like characters (alphanumeric, -, _, =, /)
         if !token
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '=' || c == '/')
         {
             return Err(crate::Error::invalid_pot_token(token));
         }
@@ -1117,54 +1095,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_generate_placeholder_token() {
-        let settings = Settings::default();
-        let manager = SessionManager::new(settings);
-
-        let visitor_data = "test_visitor_data";
-        let token = manager.generate_placeholder_token(visitor_data).unwrap();
-
-        // Should be valid POT token length
-        assert!(token.len() >= 110);
-        assert!(token.len() <= 128);
-
-        // Should contain only valid characters
-        assert!(
-            token
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-        );
-
-        // Should be deterministic for same input
-        let token2 = manager.generate_placeholder_token(visitor_data).unwrap();
-        assert_eq!(token, token2);
-
-        // Should be different for different input
-        let token3 = manager
-            .generate_placeholder_token("different_visitor_data")
-            .unwrap();
-        assert_ne!(token, token3);
-    }
-
-    #[tokio::test]
     async fn test_validate_po_token() {
         let settings = Settings::default();
         let manager = SessionManager::new(settings);
 
-        // Valid token should pass
-        let valid_token = "A".repeat(120);
+        // Valid token should pass - use typical BotGuard token length
+        let valid_token = "A".repeat(96);
         assert!(manager.validate_po_token(&valid_token).is_ok());
 
         // Too short should fail
-        let short_token = "A".repeat(100);
+        let short_token = "A".repeat(70);
         assert!(manager.validate_po_token(&short_token).is_err());
 
         // Too long should fail
-        let long_token = "A".repeat(130);
+        let long_token = "A".repeat(160);
         assert!(manager.validate_po_token(&long_token).is_err());
 
         // Invalid characters should fail
-        let invalid_token = format!("{}{}", "A".repeat(110), "!@#$%");
+        let invalid_token = format!("{}{}", "A".repeat(85), "!@#$%");
         assert!(manager.validate_po_token(&invalid_token).is_err());
     }
 
@@ -1178,7 +1126,8 @@ mod tests {
 
         assert_eq!(result.token_type, PotTokenType::ColdStart);
         assert!(!result.po_token.is_empty());
-        assert!(result.po_token.len() >= 110);
+        // BotGuard tokens are typically around 96 characters, not 110+
+        assert!(result.po_token.len() >= 80);
         assert!(!result.is_expired());
     }
 
