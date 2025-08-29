@@ -211,6 +211,15 @@ pub struct BotGuardSettings {
     /// Custom challenge endpoint URL
     #[serde(default)]
     pub challenge_endpoint: Option<String>,
+    /// BotGuard snapshot file path for caching
+    #[serde(default)]
+    pub snapshot_path: Option<std::path::PathBuf>,
+    /// Custom User Agent for BotGuard
+    #[serde(default)]
+    pub user_agent: Option<String>,
+    /// Disable snapshot functionality
+    #[serde(default)]
+    pub disable_snapshot: bool,
 }
 
 /// Cache configuration
@@ -287,6 +296,14 @@ impl Default for BotGuardSettings {
             vm_timeout: default_vm_timeout(),
             disable_innertube: false,
             challenge_endpoint: None,
+            snapshot_path: Some(
+                dirs::data_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                    .join("bgutil-ytdlp-pot-provider")
+                    .join("botguard_snapshot.bin"),
+            ),
+            user_agent: None, // Use rustypipe-botguard default
+            disable_snapshot: false,
         }
     }
 }
