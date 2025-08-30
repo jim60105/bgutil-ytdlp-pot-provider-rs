@@ -2,9 +2,6 @@
 
 A high-performance YouTube POT (Proof-of-Origin Token) provider implemented in Rust, designed to help yt-dlp bypass the "Sign in to confirm you're not a bot" restrictions with improved performance and reliability.
 
-> [!IMPORTANT]
-> **Production Ready**: This Rust implementation provides real POT token generation using the rustypipe-botguard crate, offering improved performance, memory safety, and reliability over the original TypeScript version.
-
 > [!CAUTION]
 > Providing a POT token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
 
@@ -363,20 +360,6 @@ cargo nextest run
 # Run quality checks
 ./scripts/quality_check.sh
 ```
-
-### Current Development Status
-
-The Rust implementation includes:
-
-- ✅ HTTP server with REST API endpoints
-- ✅ Script mode for one-time token generation  
-- ✅ Session management and caching
-- ✅ Proxy support (HTTP/HTTPS/SOCKS5)
-- ✅ Configuration management
-- ✅ Comprehensive test suite
-- ✅ Real BotGuard integration using rustypipe-botguard
-- ✅ Authentic POT token generation
-- ✅ Production-ready releases
 
 ## License
 
