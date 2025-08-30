@@ -80,11 +80,12 @@ Requirements: Rust 1.85+ (edition 2024) and Cargo
 ```bash
 git clone https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs.git
 cd bgutil-ytdlp-pot-provider-rs
+
+# Option 1: Build only (binaries in target/release/)
 cargo build --release
 
-# Binaries will be available at:
-# target/release/bgutil-pot-server    (HTTP server mode)
-# target/release/bgutil-pot-generate  (script mode)
+# Option 2: Build and install to ~/.cargo/bin (recommended)
+cargo install --path .
 ```
 
 ### Step 2: Install the yt-dlp Plugin
