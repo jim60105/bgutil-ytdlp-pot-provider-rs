@@ -14,7 +14,7 @@ categories = ["api-bindings", "development-tools", "multimedia", "command-line-u
 
 exclude = [
     ".github/",
-    "server/",
+    "/server/",
     "plugin/",
     "scripts/",
     "docs/",
