@@ -88,6 +88,16 @@ cargo build --release
 cargo install --path .
 ```
 
+#### Option C: Docker/Podman Container
+
+```bash
+# Build the container image
+docker build -f Containerfile -t bgutil-pot-server .
+
+# Run the container
+docker run -p 4416:4416 bgutil-pot-server
+```
+
 ### Step 2: Install the yt-dlp Plugin
 
 #### Option A: PyPI Installation
