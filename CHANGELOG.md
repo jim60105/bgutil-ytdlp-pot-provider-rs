@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-08-31
+
+### Fixed
+
+- Fixed: Cargo publish compatibility by correcting exclude path pattern from 'server/' to '/server/' to specifically exclude the root-level TypeScript server directory while preserving the src/server/ Rust module
+- Fixed: CI dependency audit workflow by ignoring RUSTSEC-2024-0436 vulnerability warning to prevent false positive build failures
+
 ## [0.1.0] - 2025-08-31
 
 ### Added
@@ -60,5 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/tag/v0.1.0
