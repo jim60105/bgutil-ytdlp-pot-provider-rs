@@ -27,13 +27,13 @@ mod tests {
     fn test_get_version() {
         let version = get_version();
         assert!(!version.is_empty());
-        assert_eq!(version, "0.1.0"); // Should match Cargo.toml
+        assert_eq!(version, env!("CARGO_PKG_VERSION")); // Should match Cargo.toml
     }
 
     #[test]
     fn test_get_detailed_version() {
         let detailed = get_detailed_version();
         assert!(!detailed.is_empty());
-        assert!(detailed.contains("0.1.0"));
+        assert!(detailed.contains(env!("CARGO_PKG_VERSION")));
     }
 }
