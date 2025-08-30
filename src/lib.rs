@@ -1,8 +1,17 @@
 //! BgUtils POT Provider - Rust Implementation
 //!
-//! A proof-of-origin token (POT) provider for yt-dlp using LuanRT's BgUtils library.
-//! This library provides both HTTP server and script-based modes for generating
-//! POT tokens to bypass YouTube's bot detection.
+//! A high-performance proof-of-origin token (POT) provider for yt-dlp using the rustypipe-botguard crate.
+//! This library provides both HTTP server and script-based modes for generating authentic POT tokens
+//! to bypass YouTube's bot detection.
+//!
+//! # Features
+//!
+//! - **Real BotGuard Integration**: Uses rustypipe-botguard for authentic POT token generation
+//! - **High Performance**: Written in Rust for optimal speed and memory efficiency
+//! - **HTTP Server Mode**: Always-running REST API for token generation
+//! - **Script Mode**: Command-line interface for single token requests
+//! - **Session Management**: Intelligent caching and session handling
+//! - **Cross-Platform**: Native support for Linux, Windows, and macOS
 //!
 //! # Architecture
 //!

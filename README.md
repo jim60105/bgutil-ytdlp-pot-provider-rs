@@ -2,9 +2,6 @@
 
 A high-performance YouTube POT (Proof-of-Origin Token) provider implemented in Rust, designed to help yt-dlp bypass the "Sign in to confirm you're not a bot" restrictions with improved performance and reliability.
 
-> [!IMPORTANT]
-> **Development Status**: This is currently a development version of the Rust implementation. The core functionality is implemented and tested, but some features are still being refined. The implementation uses placeholder token generation for testing purposes.
-
 > [!CAUTION]
 > Providing a POT token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
 
@@ -13,7 +10,7 @@ A high-performance YouTube POT (Proof-of-Origin Token) provider implemented in R
 [![Code Coverage](https://img.shields.io/codecov/c/github/jim60105/bgutil-ytdlp-pot-provider-rs?style=for-the-badge)](https://codecov.io/gh/jim60105/bgutil-ytdlp-pot-provider-rs)
 [![Crates.io](https://img.shields.io/crates/v/bgutil-ytdlp-pot-provider?style=for-the-badge)](https://crates.io/crates/bgutil-ytdlp-pot-provider)
 
-This Rust implementation uses [LuanRT's BotGuard interfacing library](https://github.com/LuanRT/BgUtils) to generate POT tokens, helping bypass YouTube's bot detection when using yt-dlp from flagged IP addresses. See the _[PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)_ for technical details.
+This Rust implementation uses [LuanRT's BotGuard interfacing library](https://github.com/LuanRT/BgUtils) through the [rustypipe-botguard crate](https://crates.io/crates/rustypipe-botguard) to generate authentic POT tokens, helping bypass YouTube's bot detection when using yt-dlp from flagged IP addresses. See the _[PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)_ for technical details.
 
 ## Why Rust?
 
@@ -61,21 +58,34 @@ yt-dlp (bypasses bot check)
 
 ### Step 1: Install the Rust POT Provider
 
-> [!NOTE]
-> This is currently a development version. Pre-compiled binaries and crates.io packages are not yet available.
+#### Option A: Pre-compiled Binaries (Recommended)
 
-#### Option A: Build from Source (Current Method)
+Download the latest release from [GitHub Releases](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases):
+
+```bash
+# Download and extract the binary for your platform
+# Example for Linux x86_64:
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-provider-linux-x86_64.tar.gz
+tar -xzf bgutil-pot-provider-linux-x86_64.tar.gz
+
+# Make executable and move to PATH
+chmod +x bgutil-pot-server bgutil-pot-generate
+sudo mv bgutil-pot-server bgutil-pot-generate /usr/local/bin/
+```
+
+#### Option B: Build from Source
 
 Requirements: Rust 1.85+ (edition 2024) and Cargo
 
 ```bash
 git clone https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs.git
 cd bgutil-ytdlp-pot-provider-rs
+
+# Option 1: Build only (binaries in target/release/)
 cargo build --release
 
-# Binaries will be available at:
-# target/release/bgutil-pot-server    (HTTP server mode)
-# target/release/bgutil-pot-generate  (script mode)
+# Option 2: Build and install to ~/.cargo/bin (recommended)
+cargo install --path .
 ```
 
 ### Step 2: Install the yt-dlp Plugin
@@ -185,20 +195,63 @@ yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot
 
 ### Configuration
 
-> [!NOTE]
-> Configuration file support is currently under development. Most settings are controlled via command line arguments or environment variables.
-
-Both modes support configuration via:
+Both modes support comprehensive configuration via:
 
 1. Command line arguments (highest priority)
-2. Environment variables
-3. Default values
+2. Environment variables  
+3. Configuration file
+4. Default values (lowest priority)
 
 **Environment Variables:**
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `RUST_LOG` | Logging level (error, warn, info, debug, trace) | `info` |
+| `POT_SERVER_HOST` | Server bind address | `::` |
+| `POT_SERVER_PORT` | Server listen port | `4416` |
+| `TOKEN_TTL` | Token TTL in hours | `6` |
+| `HTTPS_PROXY` | HTTPS proxy URL | None |
+| `HTTP_PROXY` | HTTP proxy URL | None |
+| `ALL_PROXY` | All protocols proxy URL | None |
+| `DISABLE_INNERTUBE` | Disable Innertube API usage | `false` |
+| `CACHE_DIR` | Cache directory path | Platform default |
+
+**Configuration File Example (`config.toml`):**
+
+```toml
+[server]
+host = "::"
+port = 4416
+timeout = 30
+enable_cors = true
+
+[token]
+ttl_hours = 6
+enable_cache = true
+max_cache_entries = 1000
+
+[botguard]
+request_key = "O43z0dpjhgX20SCx4KAo"
+enable_vm = true
+vm_timeout = 30
+disable_innertube = false
+
+[network]
+connect_timeout = 30
+request_timeout = 60
+max_retries = 3
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+[logging]
+level = "info"
+verbose = false
+format = "text"
+
+[cache]
+enable_file_cache = true
+memory_cache_size = 100
+enable_compression = false
+```
 
 **Example usage with environment variables:**
 
@@ -308,20 +361,6 @@ cargo nextest run
 # Run quality checks
 ./scripts/quality_check.sh
 ```
-
-### Current Development Status
-
-The Rust implementation includes:
-
-- ✅ HTTP server with REST API endpoints
-- ✅ Script mode for one-time token generation  
-- ✅ Session management and caching
-- ✅ Proxy support (HTTP/HTTPS/SOCKS5)
-- ✅ Configuration management
-- ✅ Comprehensive test suite
-- 🚧 BotGuard integration (currently using placeholder tokens for testing)
-- 🚧 Real POT token generation (implementation in progress)
-- 🚧 Production-ready releases
 
 ## License
 
