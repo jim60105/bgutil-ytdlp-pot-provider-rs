@@ -1,0 +1,49 @@
+# Check this guide for more information about publishing to ghcr.io with GitHub Actions:
+# https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions
+
+# Build the container image and push it to the registry
+name: build-container
+
+on:
+  # Trigger the workflow on tags push that match the pattern v*, for example v1.0.0
+  push:
+    tags:
+      - "v*"
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets the permissions granted to the GITHUB_TOKEN for the actions in this job.
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  docker-tag:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: bgutil-pot-server
+            binary: bgutil-pot-server
+          - name: bgutil-pot-generate
+            binary: bgutil-pot-generate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build and push container
+        uses: ./.github/workflows/container-reused-steps
+        with:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          IMAGE_NAME: ${{ matrix.image.name }}
+          CONTAINERFILE: ./Containerfile
+          NAME: ${{ matrix.image.binary }}
