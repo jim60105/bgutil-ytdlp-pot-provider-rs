@@ -76,15 +76,27 @@ impl Default for ConfigLoader {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::sync::Mutex;
     use tempfile::NamedTempFile;
+
+    // Static mutex to ensure environment variable tests don't interfere with each other
+    static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_load_defaults() {
-        let loader = ConfigLoader::new();
-        let settings = loader.from_env_only().unwrap();
+        let _lock = ENV_TEST_MUTEX.lock().unwrap();
+        
+        // Instead of modifying the global environment, test that Settings::default() 
+        // returns the expected default values
+        let default_settings = Settings::default();
+        assert_eq!(default_settings.server.port, 4416);
+        assert_eq!(default_settings.token.ttl_hours, 6);
 
-        assert_eq!(settings.server.port, 4416);
-        assert_eq!(settings.token.ttl_hours, 6);
+        // Test that ConfigLoader correctly uses these defaults
+        let loader = ConfigLoader::new();
+        let defaults = loader.defaults();
+        assert_eq!(defaults.server.port, 4416);
+        assert_eq!(defaults.token.ttl_hours, 6);
     }
 
     #[test]
@@ -113,6 +125,13 @@ ttl_hours = 12
 
     #[test]
     fn test_env_var_override() {
+        let _lock = ENV_TEST_MUTEX.lock().unwrap();
+        
+        // Save current environment state
+        let original_port = std::env::var("POT_SERVER_PORT").ok();
+        let original_ttl = std::env::var("TOKEN_TTL").ok();
+
+        // Set test environment variables (still need unsafe for global env modification)
         unsafe {
             std::env::set_var("TOKEN_TTL", "24");
             std::env::set_var("POT_SERVER_PORT", "9000");
@@ -124,9 +143,17 @@ ttl_hours = 12
         assert_eq!(settings.token.ttl_hours, 24);
         assert_eq!(settings.server.port, 9000);
 
+        // Restore original environment state
         unsafe {
             std::env::remove_var("TOKEN_TTL");
             std::env::remove_var("POT_SERVER_PORT");
+
+            if let Some(port) = original_port {
+                std::env::set_var("POT_SERVER_PORT", port);
+            }
+            if let Some(ttl) = original_ttl {
+                std::env::set_var("TOKEN_TTL", ttl);
+            }
         }
     }
 

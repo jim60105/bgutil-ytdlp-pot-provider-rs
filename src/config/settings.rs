@@ -508,7 +508,11 @@ impl Settings {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::sync::Mutex;
     use tempfile::NamedTempFile;
+
+    // Static mutex to ensure environment variable tests don't interfere with each other
+    static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_default_settings() {
@@ -555,6 +559,8 @@ ttl_hours = 12
 
     #[test]
     fn test_env_var_override() {
+        let _lock = ENV_TEST_MUTEX.lock().unwrap();
+        
         unsafe {
             std::env::set_var("TOKEN_TTL", "24");
             std::env::set_var("POT_SERVER_PORT", "9000");
