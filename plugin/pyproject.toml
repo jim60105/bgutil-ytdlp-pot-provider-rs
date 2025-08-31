@@ -3,17 +3,22 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "bgutil-ytdlp-pot-provider"
+name = "bgutil-ytdlp-pot-provider-rs"
 dynamic = ["version"]
+description = "BgUtils POT Provider (Rust) - yt-dlp plugin for generating YouTube POT tokens using Rust backend"
 readme = {file = "../README.md", content-type = "text/markdown"}
 classifiers = [
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
 ]
 requires-python = ">=3.8"
-keywords = ["yt-dlp", "yt-dlp-plugin", "yt-dlp-pot-provider"]
-maintainers = [
-  { name = "Brainicism", email = "brainicism@gmail.com" },
+keywords = ["yt-dlp", "yt-dlp-plugin", "pot-provider", "youtube", "bgutils"]
+authors = [
+  { name = "Jim Chen", email = "Jim@ChenJ.im" },
+  { name = "Brian Le", email = "brainicism@gmail.com" },
   { name = "grqz" },
+]
+maintainers = [
+  { name = "Jim Chen", email = "Jim@ChenJ.im" },
 ]
 dependencies = []
 
