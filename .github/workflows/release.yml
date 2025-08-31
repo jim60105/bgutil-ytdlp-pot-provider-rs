@@ -80,7 +80,10 @@ jobs:
         ls -la "${PROJECT_NAME}.zip"
         echo "Created plugin package: ${PROJECT_NAME}.zip"
 
-    - name: Upload Plugin to Release
+    - name: Wait for Release Creation
+      run: sleep 5
+
+    - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
       with:
         files: ${{ env.PLUGIN_ZIP_PATH }}
