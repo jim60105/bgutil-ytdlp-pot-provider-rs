@@ -560,7 +560,7 @@ ttl_hours = 12
     #[test]
     fn test_env_var_override() {
         let _lock = ENV_TEST_MUTEX.lock().unwrap();
-        
+
         unsafe {
             std::env::set_var("TOKEN_TTL", "24");
             std::env::set_var("POT_SERVER_PORT", "9000");

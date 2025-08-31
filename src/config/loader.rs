@@ -85,8 +85,8 @@ mod tests {
     #[test]
     fn test_load_defaults() {
         let _lock = ENV_TEST_MUTEX.lock().unwrap();
-        
-        // Instead of modifying the global environment, test that Settings::default() 
+
+        // Instead of modifying the global environment, test that Settings::default()
         // returns the expected default values
         let default_settings = Settings::default();
         assert_eq!(default_settings.server.port, 4416);
@@ -126,7 +126,7 @@ ttl_hours = 12
     #[test]
     fn test_env_var_override() {
         let _lock = ENV_TEST_MUTEX.lock().unwrap();
-        
+
         // Save current environment state
         let original_port = std::env::var("POT_SERVER_PORT").ok();
         let original_ttl = std::env::var("TOKEN_TTL").ok();
