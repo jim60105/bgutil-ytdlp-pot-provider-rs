@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-08-31
+
+### Added
+
+- Added: Unified CLI architecture with `bgutil-pot` binary supporting both server and generate modes via subcommands
+- Added: Container deployment support with multi-platform builds (Linux amd64/arm64)
+- Added: GitHub Actions workflow for automated container building with SLSA attestation support
+- Added: Plugin packaging in GitHub Releases for unified distribution (yt-dlp plugin + Rust binaries)
+- Added: Comprehensive container deployment with Docker/Podman support and SELinux compatibility
+- Added: Multi-registry container publishing (Docker Hub, GitHub Container Registry, Quay.io)
+- Added: Static binary builds with UPX compression for minimal container images
+- Added: CLI migration guide (`docs/CLI_MIGRATION.md`) for transitioning from dual-binary system
+
+### Changed
+
+- Changed: Merged dual binary system (`bgutil-pot-server` + `bgutil-pot-generate`) into single `bgutil-pot` CLI tool
+- Changed: CLI interface now uses subcommands: `bgutil-pot server` for server mode, `bgutil-pot` for generate mode
+- Changed: Container base image migrated from Alpine to Debian bookworm-slim for better V8 compatibility
+- Changed: Python plugin backend migrated from TypeScript to Rust implementation
+- Changed: Plugin provider names updated from 'bgutil:script' to 'bgutil:cli' for better terminology
+- Changed: Installation documentation updated to reference this project's GitHub Releases
+
+### Fixed
+
+- Fixed: CLI integration tests updated to use correct binary name after unification
+- Fixed: Container exit code 127 resolved by using static dumb-init binary for scratch compatibility
+- Fixed: Version checking tests made dynamic to prevent failures during version bumps
+- Fixed: Visitor data validation to accept underscore and hyphen characters from YouTube API
+- Fixed: Python plugin executable path detection and validation logic
+- Fixed: Container SELinux flag compatibility for GitHub Actions environment
+
+### Security
+
+- Security: Implemented SLSA Level 3 build-provenance attestations for container images
+- Security: Added SBOM (Software Bill of Materials) generation for supply chain transparency
+- Security: Container images run as non-root user (UID 1001) with minimal scratch base
+
 ## [0.1.1] - 2025-08-31
 
 ### Fixed
@@ -67,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/tag/v0.1.0
