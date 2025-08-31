@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1
+
+#! This Containerfile is designed for SELinux-enabled systems.
+#! On non-SELinux systems, remove the ",z" flags from --mount options.
+
 ARG UID=1001
 ARG VERSION=EDGE
 ARG RELEASE=0

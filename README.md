@@ -88,13 +88,23 @@ cargo build --release
 cargo install --path .
 ```
 
-#### Option C: Docker/Podman Container
+#### Option C: Container (Docker/Podman)
+
+> [!NOTE]  
+> The Containerfile is designed for SELinux-enabled systems. On non-SELinux systems, remove the `,z` flags from `--mount` options.
 
 ```bash
 # Build the container image
-docker build -f Containerfile -t bgutil-pot-server .
+podman build -f Containerfile -t bgutil-pot-server .
 
-# Run the container
+# Run the container (basic usage)
+podman run -p 4416:4416 bgutil-pot-server
+
+# Run with custom configuration
+podman run -p 8080:4416 -e RUST_LOG=debug bgutil-pot-server --host 0.0.0.0 --port 4416
+
+# Using Docker instead of Podman
+docker build -f Containerfile -t bgutil-pot-server .
 docker run -p 4416:4416 bgutil-pot-server
 ```
 
