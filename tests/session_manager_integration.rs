@@ -111,13 +111,16 @@ async fn test_visitor_data_generation_real_api() {
             "Visitor data should have meaningful length"
         );
         // Real visitor data from YouTube's Innertube API
+        // Visitor data is typically base64url-encoded or URL-encoded
         assert!(
             visitor_data.chars().all(|c| c.is_ascii_alphanumeric()
                 || c == '%'
                 || c == '='
                 || c == '+'
-                || c == '/'),
-            "Visitor data should be URL-encoded"
+                || c == '/'
+                || c == '_'
+                || c == '-'),
+            "Visitor data should be URL-encoded or base64url-encoded"
         );
     }
 }
