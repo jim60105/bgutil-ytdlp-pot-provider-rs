@@ -59,7 +59,7 @@ RUN --mount=source=src,target=src,z \
 ########################################
 # Builder stage
 ########################################
-FROM cook AS builder
+FROM test AS builder
 
 ARG NAME
 RUN --mount=source=src,target=src,z \
