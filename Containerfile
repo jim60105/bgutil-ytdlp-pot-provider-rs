@@ -56,13 +56,20 @@ RUN --mount=source=/app/recipe.json,target=recipe.json,from=planner \
 ########################################
 FROM cook AS test
 
+# Install cargo-nextest for running tests
+# Temporarily unset RUSTFLAGS to allow proc-macro compilation for the host
+RUN env -u RUSTFLAGS cargo install cargo-nextest --locked
+
 RUN --mount=source=src,target=src,z \
     --mount=source=Cargo.toml,target=Cargo.toml,z \
     --mount=source=Cargo.lock,target=Cargo.lock,z \
-    cargo test --release --target x86_64-unknown-linux-gnu --all-targets --locked
+    --mount=source=.config/nextest.toml,target=.config/nextest.toml,z \
+    cargo nextest run --release --target x86_64-unknown-linux-gnu --all-targets --locked
 
 ########################################
 # Builder stage
+# This stage relies on test stage passing
+# Note that we already have project built in test stage, so this will be fast
 ########################################
 FROM test AS builder
 
