@@ -7,15 +7,14 @@ ARG NAME=bgutil-pot-server
 ########################################
 # Chef base stage
 ########################################
-FROM lukemathwalker/cargo-chef:latest-rust-alpine AS chef
+FROM docker.io/lukemathwalker/cargo-chef:latest-rust-1.89.0 AS chef
 WORKDIR /app
 
 # Create directories with correct permissions
 ARG UID
 RUN install -d -m 775 -o $UID -g 0 /licenses
 
-# The Rust team is planning to change the meaning of *-unknown-linux-musl from "+crt-static" to "-crt-static"
-# https://github.com/rust-lang/compiler-team/issues/422#issuecomment-1767659770
+# Enable static linking for Rust binaries
 ENV RUSTFLAGS="-C target-feature=+crt-static"
 
 ########################################
@@ -23,9 +22,9 @@ ENV RUSTFLAGS="-C target-feature=+crt-static"
 # Generate a recipe for the project, containing all dependencies information for cooking
 ########################################
 FROM chef AS planner
-RUN --mount=source=src,target=src \
-    --mount=source=Cargo.toml,target=Cargo.toml \
-    --mount=source=Cargo.lock,target=Cargo.lock \
+RUN --mount=source=src,target=src,z \
+    --mount=source=Cargo.toml,target=Cargo.toml,z \
+    --mount=source=Cargo.lock,target=Cargo.lock,z \
     cargo chef prepare --recipe-path recipe.json
 
 ########################################
@@ -37,35 +36,36 @@ FROM chef AS cook
 # RUN mount cache for multi-arch: https://github.com/docker/buildx/issues/549#issuecomment-1788297892
 ARG TARGETARCH
 ARG TARGETVARIANT
-RUN --mount=type=cache,id=apk-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/cache/apk \
+RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=aptlists-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/lib/apt/lists \
     # dependencies for git2-rs and other system libs
-    apk update && apk add -u \
-    pkgconfig \
-    libressl-dev
+    apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev
 
 RUN --mount=source=/app/recipe.json,target=recipe.json,from=planner \
-    cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json --all-targets --locked
+    cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path recipe.json --all-targets --locked
 
 ########################################
 # Test stage
 ########################################
 FROM cook AS test
 
-RUN --mount=source=src,target=src \
-    --mount=source=Cargo.toml,target=Cargo.toml \
-    --mount=source=Cargo.lock,target=Cargo.lock \
-    cargo test --release --target x86_64-unknown-linux-musl --all-targets --locked
+RUN --mount=source=src,target=src,z \
+    --mount=source=Cargo.toml,target=Cargo.toml,z \
+    --mount=source=Cargo.lock,target=Cargo.lock,z \
+    cargo test --release --target x86_64-unknown-linux-gnu --all-targets --locked
 
 ########################################
 # Builder stage
 ########################################
-FROM test AS builder
+FROM cook AS builder
 
 ARG NAME
-RUN --mount=source=src,target=src \
-    --mount=source=Cargo.toml,target=Cargo.toml \
-    --mount=source=Cargo.lock,target=Cargo.lock \
-    cargo build --release --target x86_64-unknown-linux-musl --bin ${NAME} --locked
+RUN --mount=source=src,target=src,z \
+    --mount=source=Cargo.toml,target=Cargo.toml,z \
+    --mount=source=Cargo.lock,target=Cargo.lock,z \
+    cargo build --release --target x86_64-unknown-linux-gnu --bin ${NAME} --locked
 
 ########################################
 # Compress stage
@@ -78,18 +78,20 @@ ARG TARGETVARIANT
 
 # Compress dist and dumb-init with upx
 ARG NAME
-RUN --mount=type=cache,id=apk-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/cache/apk \
-    --mount=from=builder,source=/app/target/x86_64-unknown-linux-musl/release/${NAME},target=/tmp/app \
-    apk update && apk add -u \
-    -X "https://dl-cdn.alpinelinux.org/alpine/edge/community" \
-    upx dumb-init && \
+RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=aptlists-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/lib/apt/lists \
+    --mount=from=builder,source=/app/target/x86_64-unknown-linux-gnu/release/${NAME},target=/tmp/app \
+    echo "deb http://deb.debian.org/debian bookworm-backports main" >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y -t bookworm-backports \
+    upx-ucl && \
+    apt-get install -y dumb-init && \
     cp /tmp/app /${NAME} && \
     #! UPX will skip small files and large files
     # https://github.com/upx/upx/blob/5bef96806860382395d9681f3b0c69e0f7e853cf/src/p_unix.cpp#L80
     # https://github.com/upx/upx/blob/b0dc48316516d236664dfc5f1eb5f2de00fc0799/src/conf.h#L134
     (upx --best --lzma /${NAME} || true) && \
     (upx --best --lzma /usr/bin/dumb-init || true) && \
-    apk del upx
+    apt-get remove -y upx-ucl
 
 ########################################
 # Binary stage
@@ -98,7 +100,7 @@ RUN --mount=type=cache,id=apk-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
 FROM scratch AS binary
 
 ARG NAME
-COPY --link --chown=0:0 --chmod=777 --from=compress /${NAME} /${NAME}
+COPY --chown=0:0 --chmod=777 --from=compress /${NAME} /${NAME}
 
 ########################################
 # Final stage
@@ -108,21 +110,21 @@ FROM scratch AS final
 ARG UID
 
 # Create directories with correct permissions
-COPY --link --chown=$UID:0 --chmod=775 --from=chef /licenses /licenses
+COPY --chown=$UID:0 --chmod=775 --from=chef /licenses /licenses
 
 # Copy CA trust store
 # Rust seems to use this one: https://stackoverflow.com/a/57295149/8706033
-COPY --link --from=chef /etc/ssl/cert.pem /etc/ssl/
+COPY --from=chef /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem
 
 # dumb-init
-COPY --link --chown=$UID:0 --chmod=775 --from=compress /usr/bin/dumb-init /dumb-init
+COPY --chown=$UID:0 --chmod=775 --from=compress /usr/bin/dumb-init /dumb-init
 
 # Copy licenses (OpenShift Policy)
-COPY --link --chown=$UID:0 --chmod=775 LICENSE /licenses/Containerfile.LICENSE
+COPY --chown=$UID:0 --chmod=775 LICENSE /licenses/LICENSE
 
 # Copy dist
 ARG NAME
-COPY --link --chown=$UID:0 --chmod=775 --from=compress /${NAME} /app
+COPY --chown=$UID:0 --chmod=775 --from=compress /${NAME} /app
 
 ENV PATH="/"
 
