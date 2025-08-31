@@ -46,34 +46,34 @@ class BgUtilCliPTP(BgUtilPTPBase):
 
         # default if no arg was passed
         # First, try to find the executable in PATH
-        if self._get_executable_path('bgutil-pot-generate'):
-            self.logger.debug('Found bgutil-pot-generate in PATH')
-            return 'bgutil-pot-generate'
+        if self._get_executable_path('bgutil-pot'):
+            self.logger.debug('Found bgutil-pot in PATH')
+            return 'bgutil-pot'
 
         # Then check common file locations
         file_paths = [
             os.path.join(
-                os.getcwd(), 'target', 'debug', 'bgutil-pot-generate'
+                os.getcwd(), 'target', 'debug', 'bgutil-pot'
             ),
             os.path.join(
-                os.getcwd(), 'target', 'release', 'bgutil-pot-generate'
+                os.getcwd(), 'target', 'release', 'bgutil-pot'
             ),
             os.path.expanduser(
-                '~/bgutil-ytdlp-pot-provider/target/debug/bgutil-pot-generate'
+                '~/bgutil-ytdlp-pot-provider/target/debug/bgutil-pot'
             ),
             os.path.expanduser(
                 '~/bgutil-ytdlp-pot-provider/target/release/'
-                'bgutil-pot-generate'
+                'bgutil-pot'
             ),
         ]
 
         for path in file_paths:
             if self._get_executable_path(path):
-                self.logger.debug(f'Found bgutil-pot-generate at: {path}')
+                self.logger.debug(f'Found bgutil-pot at: {path}')
                 return path
 
         # Fallback to PATH name if no file found
-        default_path = 'bgutil-pot-generate'
+        default_path = 'bgutil-pot'
         self.logger.debug(
             f'No CLI path found, defaulting to {default_path}')
         return default_path
@@ -117,7 +117,7 @@ class BgUtilCliPTP(BgUtilPTPBase):
                 once=True)
             return False
         else:
-            self.logger.debug(f'bgutil-pot-generate version: {stdout.strip()}')
+            self.logger.debug(f'bgutil-pot version: {stdout.strip()}')
             return True
 
     def _real_request_pot(

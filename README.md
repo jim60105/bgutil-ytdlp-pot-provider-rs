@@ -41,8 +41,8 @@ yt-dlp (bypasses bot check)
 ### Core Components
 
 1. **Rust POT Provider** (this project): Two operation modes:
-   - **HTTP Server Mode** (`bgutil-pot-server`): Always-running REST API service (recommended)
-   - **Script Mode** (`bgutil-pot-generate`): Per-request command-line execution
+   - **HTTP Server Mode** (`bgutil-pot server`): Always-running REST API service (recommended)
+   - **Script Mode** (`bgutil-pot`): Per-request command-line execution
    
 2. **Python Plugin** (inherited from TypeScript version): Integrates with yt-dlp's POT framework to automatically fetch tokens from the provider.
 
@@ -65,13 +65,11 @@ Download the latest release from [GitHub Releases](https://github.com/jim60105/b
 ```bash
 # Download the binary for your platform
 # Example for Linux x86_64:
-wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-server-linux-x86_64
-wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-generate-linux-x86_64
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-linux-x86_64
 
 # Make executable and move to PATH
-chmod +x bgutil-pot-server-linux-x86_64 bgutil-pot-generate-linux-x86_64
-sudo mv bgutil-pot-server-linux-x86_64 /usr/local/bin/bgutil-pot-server
-sudo mv bgutil-pot-generate-linux-x86_64 /usr/local/bin/bgutil-pot-generate
+chmod +x bgutil-pot-linux-x86_64
+sudo mv bgutil-pot-linux-x86_64 /usr/local/bin/bgutil-pot
 ```
 
 #### Option B: Build from Source
@@ -96,17 +94,17 @@ cargo install --path .
 
 ```bash
 # Build the container image
-podman build -f Containerfile -t bgutil-pot-server .
+podman build -f Containerfile -t bgutil-pot .
 
 # Run the container (basic usage)
-podman run -p 4416:4416 bgutil-pot-server
+podman run -p 4416:4416 bgutil-pot
 
 # Run with custom configuration
-podman run -p 8080:4416 -e RUST_LOG=debug bgutil-pot-server --host 0.0.0.0 --port 4416
+podman run -p 8080:4416 -e RUST_LOG=debug bgutil-pot server --host 0.0.0.0 --port 4416
 
 # Using Docker instead of Podman
-docker build -f Containerfile -t bgutil-pot-server .
-docker run -p 4416:4416 bgutil-pot-server
+docker build -f Containerfile -t bgutil-pot .
+docker run -p 4416:4416 bgutil-pot
 ```
 
 ### Step 2: Install the yt-dlp Plugin
@@ -138,16 +136,16 @@ The HTTP server mode provides the best performance and user experience.
 
 ```bash
 # Using default settings (binds to [::]:4416, IPv6 with IPv4 fallback)
-./bgutil-pot-server
+./bgutil-pot server
 
 # Custom port
-./bgutil-pot-server --port 8080
+./bgutil-pot server --port 8080
 
 # Custom host address
-./bgutil-pot-server --host 127.0.0.1 --port 4416
+./bgutil-pot server --host 127.0.0.1 --port 4416
 
 # With verbose logging
-./bgutil-pot-server --verbose
+./bgutil-pot server --verbose
 ```
 
 **Server Command Line Options:**
@@ -189,16 +187,16 @@ For occasional use or environments where running a persistent service is not des
 
 ```bash
 # Generate token for a specific video
-./bgutil-pot-generate --content-binding "VIDEO_ID"
+./bgutil-pot --content-binding "VIDEO_ID"
 
 # With proxy support
-./bgutil-pot-generate --content-binding "VIDEO_ID" --proxy "http://proxy.example.com:8080"
+./bgutil-pot --content-binding "VIDEO_ID" --proxy "http://proxy.example.com:8080"
 
 # Bypass cache to force new token generation
-./bgutil-pot-generate --content-binding "VIDEO_ID" --bypass-cache
+./bgutil-pot --content-binding "VIDEO_ID" --bypass-cache
 
 # With verbose logging
-./bgutil-pot-generate --content-binding "VIDEO_ID" --verbose
+./bgutil-pot --content-binding "VIDEO_ID" --verbose
 ```
 
 **Generate Command Line Options:**
@@ -215,7 +213,7 @@ For occasional use or environments where running a persistent service is not des
 
 ```bash
 # Specify the script path for yt-dlp integration
-yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot-generate" "VIDEO_URL"
+yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot" "VIDEO_URL"
 ```
 
 ### Configuration
@@ -283,10 +281,10 @@ enable_compression = false
 ```bash
 # Set logging level
 export RUST_LOG=debug
-./bgutil-pot-server
+./bgutil-pot server
 
 # Multiple settings
-RUST_LOG=debug ./bgutil-pot-generate --content-binding "VIDEO_ID"
+RUST_LOG=debug ./bgutil-pot --content-binding "VIDEO_ID"
 ```
 
 ### Proxy Support
@@ -338,10 +336,10 @@ If tokens stop working, try the following in order:
 curl http://127.0.0.1:4416/ping
 
 # Test with verbose logging
-./bgutil-pot-server --verbose
+./bgutil-pot server --verbose
 
 # Test script mode
-./bgutil-pot-generate --content-binding "test" --verbose
+./bgutil-pot --content-binding "test" --verbose
 ```
 
 #### Plugin not detected

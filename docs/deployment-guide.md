@@ -52,10 +52,10 @@ sudo mkdir -p /opt/bgutil-pot-provider/{bin,config,cache,logs}
 sudo chown -R bgutil:bgutil /opt/bgutil-pot-provider
 
 # Download binary
-sudo wget -O /opt/bgutil-pot-provider/bin/bgutil-pot-server \
-  https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-ytdlp-pot-provider-rs-linux-x86_64
+sudo wget -O /opt/bgutil-pot-provider/bin/bgutil-pot \
+  https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-linux-x86_64
 
-sudo chmod +x /opt/bgutil-pot-provider/bin/bgutil-pot-server
+sudo chmod +x /opt/bgutil-pot-provider/bin/bgutil-pot
 ```
 
 #### 1.2 Configuration
@@ -108,7 +108,7 @@ Type=simple
 User=bgutil
 Group=bgutil
 WorkingDirectory=/opt/bgutil-pot-provider
-ExecStart=/opt/bgutil-pot-provider/bin/bgutil-pot-server \\
+ExecStart=/opt/bgutil-pot-provider/bin/bgutil-pot server \\
   --config /opt/bgutil-pot-provider/config/config.toml \\
   --log-level info
 ExecReload=/bin/kill -HUP \$MAINPID
@@ -210,8 +210,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/bgutil-pot-server /usr/local/bin/
-COPY --from=builder /app/target/release/bgutil-pot-generate /usr/local/bin/
+COPY --from=builder /app/target/release/bgutil-pot /usr/local/bin/
 
 RUN useradd --system --home /app --shell /bin/false bgutil && \
     chown -R bgutil:bgutil /app
@@ -223,7 +222,7 @@ EXPOSE 4416
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:4416/health || exit 1
 
-CMD ["bgutil-pot-server", "--bind", "0.0.0.0", "--port", "4416"]
+CMD ["bgutil-pot", "server", "--bind", "0.0.0.0", "--port", "4416"]
 ```
 
 #### 2.3 Docker Deployment
@@ -680,13 +679,13 @@ find "$BACKUP_DIR" -name "config_*.tar.gz" -mtime +30 -delete
 **Service Won't Start:**
 ```bash
 # Check configuration
-bgutil-pot-server --config /path/to/config.toml --validate
+bgutil-pot server --config /path/to/config.toml --validate
 
 # Check permissions
-sudo -u bgutil bgutil-pot-server --version
+sudo -u bgutil bgutil-pot server --version
 
 # Check dependencies
-ldd /opt/bgutil-pot-provider/bin/bgutil-pot-server
+ldd /opt/bgutil-pot-provider/bin/bgutil-pot server
 ```
 
 **High Memory Usage:**
@@ -738,8 +737,8 @@ ab -n 100 -c 10 http://127.0.0.1:4416/ping
 **Memory Profiling:**
 ```bash
 # Monitor memory usage
-ps aux | grep bgutil-pot-server
+ps aux | grep bgutil-pot
 
 # System resource usage
-top -p $(pgrep bgutil-pot-server)
+top -p $(pgrep bgutil-pot)
 ```
