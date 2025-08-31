@@ -111,18 +111,22 @@ docker run -p 4416:4416 bgutil-pot-server
 
 ### Step 2: Install the yt-dlp Plugin
 
-#### Option A: PyPI Installation
-
-If yt-dlp is installed via `pip` or `pipx`:
-
-```bash
-python3 -m pip install -U bgutil-ytdlp-pot-provider
-```
-
-#### Option B: Manual Installation
-
 1. Download the latest plugin zip from [GitHub Releases](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases) (`bgutil-ytdlp-pot-provider-rs.zip`)
 2. Extract to one of the [yt-dlp plugin directories](https://github.com/yt-dlp/yt-dlp#installing-plugins)
+
+```text
+~/yt-dlp-plugins
+└── bgutil-ytdlp-pot-provider
+    ├── pyproject.toml
+    └── yt_dlp_plugins
+        └── extractor
+            ├── getpot_bgutil_cli.py
+            ├── getpot_bgutil_http.py
+            └── getpot_bgutil.py
+```
+
+> [!IMPORTANT]  
+> This plugin is different from the upstream TypeScript implementation. If you have an existing `bgutil-ytdlp-pot-provider` folder from the original project, please remove it first to avoid conflicts before installing this Rust version.
 
 ## Usage
 
