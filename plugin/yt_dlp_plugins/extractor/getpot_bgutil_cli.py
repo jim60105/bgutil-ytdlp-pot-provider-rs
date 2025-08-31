@@ -20,29 +20,29 @@ from yt_dlp_plugins.extractor.getpot_bgutil import BgUtilPTPBase
 
 
 @register_provider
-class BgUtilScriptPTP(BgUtilPTPBase):
-    PROVIDER_NAME = 'bgutil:script'
+class BgUtilCliPTP(BgUtilPTPBase):
+    PROVIDER_NAME = 'bgutil:cli'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._check_script = functools.cache(self._check_script_impl)
+        self._check_cli = functools.cache(self._check_cli_impl)
 
     @functools.cached_property
-    def _script_path(self):
-        script_path = self._configuration_arg(
-            'script_path', casesense=True, default=[None])[0]
+    def _cli_path(self):
+        cli_path = self._configuration_arg(
+            'cli_path', casesense=True, default=[None])[0]
 
-        if script_path:
-            return os.path.expandvars(script_path)
+        if cli_path:
+            return os.path.expandvars(cli_path)
 
         # check deprecated arg
-        deprecated_script_path = self.ie._configuration_arg(
+        deprecated_cli_path = self.ie._configuration_arg(
             ie_key='youtube', key='getpot_bgutil_script', default=[None])[0]
 
-        if deprecated_script_path:
+        if deprecated_cli_path:
             self._warn_and_raise(
                 "'youtube:getpot_bgutil_script' extractor arg is deprecated, "
-                "use 'youtubepot-bgutilscript:script_path' instead")
+                "use 'youtubepot-bgutilcli:cli_path' instead")
 
         # default if no arg was passed
         # Check common locations for the Rust executable
@@ -71,26 +71,26 @@ class BgUtilScriptPTP(BgUtilPTPBase):
         # Fallback to first option if none found
         default_path = possible_paths[0]
         self.logger.debug(
-            f'No script path passed, defaulting to {default_path}')
+            f'No CLI path passed, defaulting to {default_path}')
         return default_path
 
     def is_available(self):
-        return self._check_script(self._script_path)
+        return self._check_cli(self._cli_path)
 
     @functools.cached_property
     def _executable_path(self):
-        executable_path = shutil.which(self._script_path)
+        executable_path = shutil.which(self._cli_path)
         if executable_path:
             return executable_path
-        elif os.path.isfile(self._script_path):
-            return self._script_path
+        elif os.path.isfile(self._cli_path):
+            return self._cli_path
         return None
 
-    def _check_script_impl(self, script_path):
+    def _check_cli_impl(self, cli_path):
         executable_path = self._executable_path
         if not executable_path:
             self.logger.debug(
-                f"Executable path doesn't exist: {script_path}")
+                f"Executable path doesn't exist: {cli_path}")
             return False
         
         stdout, stderr, returncode = Popen.run(
@@ -117,12 +117,12 @@ class BgUtilScriptPTP(BgUtilPTPBase):
     ) -> PoTokenResponse:
         # used for CI check
         self.logger.trace(
-            f'Generating POT via Rust executable: {self._script_path}')
+            f'Generating POT via Rust executable: {self._cli_path}')
 
         executable_path = self._executable_path
         if not executable_path:
             raise PoTokenProviderError(
-                f'Executable not found: {self._script_path}')
+                f'Executable not found: {self._cli_path}')
 
         command_args = [executable_path]
         if proxy := request.request_proxy:
@@ -156,12 +156,12 @@ class BgUtilScriptPTP(BgUtilPTPBase):
             )
         except subprocess.TimeoutExpired as e:
             raise PoTokenProviderError(
-                f'_get_pot_via_script failed: Timeout expired when trying '
+                f'_get_pot_via_cli failed: Timeout expired when trying '
                 f'to run executable (caused by {e!r})'
             )
         except Exception as e:
             raise PoTokenProviderError(
-                f'_get_pot_via_script failed: Unable to run executable '
+                f'_get_pot_via_cli failed: Unable to run executable '
                 f'(caused by {e!r})'
             ) from e
 
@@ -175,28 +175,28 @@ class BgUtilScriptPTP(BgUtilPTPBase):
             self.logger.trace(msg)
         if returncode:
             raise PoTokenProviderError(
-                f'_get_pot_via_script failed with returncode {returncode}')
+                f'_get_pot_via_cli failed with returncode {returncode}')
 
         try:
             json_resp = stdout.splitlines()[-1]
             self.logger.trace(f'JSON response:\n{json_resp}')
             # The JSON response is always the last line
-            script_data_resp = json.loads(json_resp)
+            cli_data_resp = json.loads(json_resp)
         except json.JSONDecodeError as e:
             raise PoTokenProviderError(
-                f'Error parsing JSON response from _get_pot_via_script '
+                f'Error parsing JSON response from _get_pot_via_cli '
                 f'(caused by {e!r})'
             ) from e
-        if 'poToken' not in script_data_resp:
+        if 'poToken' not in cli_data_resp:
             raise PoTokenProviderError(
                 'The executable did not respond with a po_token')
-        return PoTokenResponse(po_token=script_data_resp['poToken'])
+        return PoTokenResponse(po_token=cli_data_resp['poToken'])
 
 
-@register_preference(BgUtilScriptPTP)
-def bgutil_script_getpot_preference(provider, request):
+@register_preference(BgUtilCliPTP)
+def bgutil_cli_getpot_preference(provider, request):
     return 1
 
 
-__all__ = [BgUtilScriptPTP.__name__,
-           bgutil_script_getpot_preference.__name__]
+__all__ = [BgUtilCliPTP.__name__,
+           bgutil_cli_getpot_preference.__name__]
