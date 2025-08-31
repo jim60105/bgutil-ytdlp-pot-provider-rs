@@ -63,14 +63,15 @@ yt-dlp (bypasses bot check)
 Download the latest release from [GitHub Releases](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases):
 
 ```bash
-# Download and extract the binary for your platform
+# Download the binary for your platform
 # Example for Linux x86_64:
-wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-provider-linux-x86_64.tar.gz
-tar -xzf bgutil-pot-provider-linux-x86_64.tar.gz
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-server-linux-x86_64
+wget https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-generate-linux-x86_64
 
 # Make executable and move to PATH
-chmod +x bgutil-pot-server bgutil-pot-generate
-sudo mv bgutil-pot-server bgutil-pot-generate /usr/local/bin/
+chmod +x bgutil-pot-server-linux-x86_64 bgutil-pot-generate-linux-x86_64
+sudo mv bgutil-pot-server-linux-x86_64 /usr/local/bin/bgutil-pot-server
+sudo mv bgutil-pot-generate-linux-x86_64 /usr/local/bin/bgutil-pot-generate
 ```
 
 #### Option B: Build from Source
@@ -120,7 +121,7 @@ python3 -m pip install -U bgutil-ytdlp-pot-provider
 
 #### Option B: Manual Installation
 
-1. Download the latest plugin zip from [original project releases](https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases)
+1. Download the latest plugin zip from [GitHub Releases](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases) (`bgutil-ytdlp-pot-provider-rs.zip`)
 2. Extract to one of the [yt-dlp plugin directories](https://github.com/yt-dlp/yt-dlp#installing-plugins)
 
 ## Usage
