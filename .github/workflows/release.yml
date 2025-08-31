@@ -124,35 +124,24 @@ jobs:
       run: |
         # Define binary names based on OS
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          SERVER_BIN="bgutil-pot-server.exe"
-          GENERATE_BIN="bgutil-pot-generate.exe"
-          SERVER_ASSET="bgutil-pot-server-${{ matrix.platform }}.exe"
-          GENERATE_ASSET="bgutil-pot-generate-${{ matrix.platform }}.exe"
+          BIN="bgutil-pot.exe"
+          ASSET="bgutil-pot-${{ matrix.platform }}.exe"
         else
-          SERVER_BIN="bgutil-pot-server"
-          GENERATE_BIN="bgutil-pot-generate"
-          SERVER_ASSET="bgutil-pot-server-${{ matrix.platform }}"
-          GENERATE_ASSET="bgutil-pot-generate-${{ matrix.platform }}"
+          BIN="bgutil-pot"
+          ASSET="bgutil-pot-${{ matrix.platform }}"
         fi
         
-        # Copy and prepare server binary
-        cp target/${{ matrix.target }}/release/$SERVER_BIN $SERVER_ASSET
+        # Copy and prepare binary
+        cp target/${{ matrix.target }}/release/$BIN $ASSET
         if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
-          chmod +x $SERVER_ASSET
-        fi
-        
-        # Copy and prepare generate binary
-        cp target/${{ matrix.target }}/release/$GENERATE_BIN $GENERATE_ASSET
-        if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
-          chmod +x $GENERATE_ASSET
+          chmod +x $ASSET
         fi
 
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          bgutil-pot-server-${{ matrix.platform }}*
-          bgutil-pot-generate-${{ matrix.platform }}*
+          bgutil-pot-${{ matrix.platform }}*
 
   publish-crates:
     name: Publish to crates.io

@@ -26,10 +26,8 @@ jobs:
     strategy:
       matrix:
         image:
-          - name: bgutil-pot-server
-            binary: bgutil-pot-server
-          - name: bgutil-pot-generate
-            binary: bgutil-pot-generate
+          - name: bgutil-pot
+            binary: bgutil-pot
 
     steps:
       - name: Checkout

@@ -27,7 +27,7 @@ if [ "$ADD_CONF" = true ]; then
         echo "WARN: yt-dlp.conf already exists at $YTDLP_CONF. Delete it if you want to recreate it." >&2
     else
         echo "Adding yt-dlp configuration to $YTDLP_CONF"
-        echo -e "--extractor-args \"youtubepot-bgutilscript:script_path=$(realpath target/debug/bgutil-pot-generate)\"" > "$YTDLP_CONF"
+        echo -e "--extractor-args \"youtubepot-bgutilscript:script_path=$(realpath target/debug/bgutil-pot)\"" > "$YTDLP_CONF"
         echo -e '--extractor-args "youtube:player-client=mweb"' >> "$YTDLP_CONF"
     fi
 else
@@ -38,5 +38,5 @@ echo "Building Rust binaries"
 cargo build
 echo "DONE!"
 echo -e "Use the following commands:"
-echo -e "  Start the server: ./target/debug/bgutil-pot-server"
-echo -e "  Generate single token: ./target/debug/bgutil-pot-generate"
+echo -e "  Start the server: ./target/debug/bgutil-pot server"
+echo -e "  Generate single token: ./target/debug/bgutil-pot --content-binding 'test'"

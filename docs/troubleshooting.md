@@ -50,7 +50,7 @@ This guide helps you diagnose and resolve common issues with the BgUtils POT Pro
 
 4. **Enable Debug Logging**
    ```bash
-   RUST_LOG=debug bgutil-pot-server --verbose
+   RUST_LOG=debug bgutil-pot server --verbose
    ```
 
 ### Token Generation Timeout
@@ -168,7 +168,7 @@ This guide helps you diagnose and resolve common issues with the BgUtils POT Pro
    curl http://localhost:4416/ping
    
    # Check if server is running
-   ps aux | grep bgutil-pot-server
+   ps aux | grep bgutil-pot
    
    # Check listening ports
    netstat -tulpn | grep 4416
@@ -188,10 +188,10 @@ This guide helps you diagnose and resolve common issues with the BgUtils POT Pro
 3. **Start Server with Correct Binding**
    ```bash
    # Bind to all interfaces
-   bgutil-pot-server --host 0.0.0.0 --port 4416
+   bgutil-pot server --host 0.0.0.0 --port 4416
    
    # Bind to specific interface
-   bgutil-pot-server --host 127.0.0.1 --port 4416
+   bgutil-pot server --host 127.0.0.1 --port 4416
    ```
 
 ### POT Tokens Not Working
@@ -206,7 +206,7 @@ This guide helps you diagnose and resolve common issues with the BgUtils POT Pro
 1. **Verify Token Generation**
    ```bash
    # Test token generation manually
-   bgutil-pot-generate --content-binding "dQw4w9WgXcQ" --verbose
+   bgutil-pot --content-binding "dQw4w9WgXcQ" --verbose
    
    # Check token format and length
    curl -X POST http://localhost:4416/get_pot \
@@ -226,15 +226,15 @@ This guide helps you diagnose and resolve common issues with the BgUtils POT Pro
    curl -X POST http://localhost:4416/invalidate_caches
    
    # Restart server to clear all state
-   pkill bgutil-pot-server
-   bgutil-pot-server
+   pkill bgutil-pot
+   bgutil-pot server
    ```
 
 4. **Check Your IP Status**
    ```bash
    # Try from different network/IP
    # Use proxy or VPN
-   bgutil-pot-server --config config-with-proxy.toml
+   bgutil-pot server --config config-with-proxy.toml
    ```
 
 5. **Update Software**
@@ -253,13 +253,13 @@ This guide helps you diagnose and resolve common issues with the BgUtils POT Pro
 
 ```bash
 # Maximum verbosity
-RUST_LOG=trace bgutil-pot-server --verbose
+RUST_LOG=trace bgutil-pot server --verbose
 
 # Specific module logging
-RUST_LOG=bgutil_ytdlp_pot_provider::session=debug bgutil-pot-server
+RUST_LOG=bgutil_ytdlp_pot_provider::session=debug bgutil-pot server
 
 # Log to file
-RUST_LOG=debug bgutil-pot-server 2>&1 | tee pot-provider.log
+RUST_LOG=debug bgutil-pot server 2>&1 | tee pot-provider.log
 ```
 
 ### Health Check Commands
@@ -281,7 +281,7 @@ curl -X POST http://localhost:4416/get_pot \
 
 ```bash
 # Benchmark token generation
-time bgutil-pot-generate --content-binding "test"
+time bgutil-pot --content-binding "test"
 
 # Load test server
 for i in {1..10}; do
@@ -315,7 +315,7 @@ If you continue to experience issues:
    yt-dlp --version
    
    # Server logs with debug info
-   RUST_LOG=debug bgutil-pot-server --verbose 2>&1 | tee debug.log
+   RUST_LOG=debug bgutil-pot server --verbose 2>&1 | tee debug.log
    ```
 
 3. **Create Issue Report**

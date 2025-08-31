@@ -6,7 +6,7 @@
 ARG UID=1001
 ARG VERSION=EDGE
 ARG RELEASE=0
-ARG NAME=bgutil-pot-server
+ARG NAME=bgutil-pot
 
 ########################################
 # Chef base stage
@@ -148,11 +148,11 @@ STOPSIGNAL SIGINT
 
 # Use dumb-init as PID 1 to handle signals properly
 ENTRYPOINT ["/dumb-init", "--", "/app"]
-CMD ["--host", "0.0.0.0"]
+CMD ["server", "--host", "0.0.0.0"]
 
 ARG VERSION
 ARG RELEASE
-LABEL name="bgutil-pot-server" \
+LABEL name="bgutil-pot" \
     # Authors for the main application
     vendor="Jim Chen" \
     # Maintainer for this container image
@@ -162,6 +162,6 @@ LABEL name="bgutil-pot-server" \
     version=${VERSION} \
     # This should be a number, incremented with each change
     release=${RELEASE} \
-    io.k8s.display-name="BgUtils POT Server" \
-    summary="High-performance YouTube POT (Proof-of-Origin Token) provider server" \
+    io.k8s.display-name="BgUtils POT Provider" \
+    summary="High-performance YouTube POT (Proof-of-Origin Token) provider" \
     description="A Rust implementation of POT provider for yt-dlp to bypass YouTube's 'Sign in to confirm you're not a bot' restrictions. For more information about this tool, please visit the following website: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs"
