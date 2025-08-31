@@ -41,7 +41,9 @@ class BgUtilHTTPPTP(BgUtilPTPBase):
             ie_key='youtube', key='getpot_bgutil_baseurl', default=[None])[0]
         if deprecated_base_url:
             self._warn_and_raise(
-                "'youtube:getpot_bgutil_baseurl' extractor arg is deprecated, use 'youtubepot-bgutilhttp:base_url' instead")
+                "'youtube:getpot_bgutil_baseurl' extractor arg is deprecated, "
+                "use 'youtubepot-bgutilhttp:base_url' instead"
+            )
 
         # default if no arg was passed
         self.logger.debug(
@@ -57,20 +59,34 @@ class BgUtilHTTPPTP(BgUtilPTPBase):
             self.logger.trace(
                 f'Checking server availability at {self._base_url}/ping')
             response = json.load(self._request_webpage(Request(
-                f'{self._base_url}/ping', extensions={'timeout': self._GET_SERVER_VSN_TIMEOUT}, proxies={'all': None}),
+                f'{self._base_url}/ping',
+                extensions={'timeout': self._GET_SERVER_VSN_TIMEOUT},
+                proxies={'all': None}
+            ),
                 note=False))
         except TransportError as e:
             # the server may be down
             script_path_provided = self.ie._configuration_arg(
-                ie_key='youtubepot-bgutilscript', key='script_path', default=[None])[0] is not None
+                ie_key='youtubepot-bgutilscript',
+                key='script_path',
+                default=[None]
+            )[0] is not None
 
-            warning_base = f'Error reaching GET {self._base_url}/ping (caused by {e.__class__.__name__}). '
+            warning_base = (
+                f'Error reaching GET {self._base_url}/ping '
+                f'(caused by {e.__class__.__name__}). '
+            )
             if script_path_provided:  # server down is expected, log info
                 self._info_and_raise(
-                    warning_base + 'This is expected if you are using the script method.')
+                    warning_base +
+                    'This is expected if you are using the script method.'
+                )
             else:
                 self._warn_and_raise(
-                    warning_base + f'Please make sure that the server is reachable at {self._base_url}.')
+                    warning_base +
+                    f'Please make sure that the server is reachable at '
+                    f'{self._base_url}.'
+                )
 
             return
         except HTTPError as e:
@@ -85,17 +101,21 @@ class BgUtilHTTPPTP(BgUtilPTPBase):
             return
         except Exception as e:
             self._warn_and_raise(
-                f'Unknown error reaching GET /ping (caused by {e!r})', raise_from=e)
+                f'Unknown error reaching GET /ping (caused by {e!r})',
+                raise_from=e
+            )
             return
         else:
-            self._check_version(response.get('version', ''), name='HTTP server')
+            version = response.get("version", "unknown")
+            self.logger.debug(f'HTTP server version: {version}')
             self._server_available = True
             return True
         finally:
             self._last_server_check = time.time()
 
     def is_available(self):
-        return self._server_available or self._last_server_check + 60 < int(time.time())
+        return (self._server_available or
+                self._last_server_check + 60 < int(time.time()))
 
     def _real_request_pot(
         self,
@@ -108,17 +128,24 @@ class BgUtilHTTPPTP(BgUtilPTPBase):
         # used for CI check
         self.logger.trace('Generating POT via HTTP server')
 
-        disable_innertube = bool(self._configuration_arg('disable_innertube', default=[None])[0])
-        challenge = self._get_attestation(None if disable_innertube else request.video_webpage)
-        # The challenge is falsy when the webpage and the challenge are unavailable
-        # In this case, we need to disable /att/get since it's broken for web_music
+        disable_innertube = bool(
+            self._configuration_arg('disable_innertube', default=[None])[0]
+        )
+        challenge = self._get_attestation(
+            None if disable_innertube else request.video_webpage
+        )
+        # The challenge is falsy when the webpage and the challenge are
+        # unavailable. In this case, we need to disable /att/get since
+        # it's broken for web_music
         if not challenge and request.internal_client_name == 'web_music':
             if not disable_innertube:  # if not already set, warn the user
                 self.logger.warning(
-                    'BotGuard challenges could not be obtained from the webpage, '
-                    'overriding disable_innertube=True because InnerTube challenges '
-                    'are currently broken for the web_music client. '
-                    'Pass disable_innertube=1 to suppress this warning.')
+                    'BotGuard challenges could not be obtained from the '
+                    'webpage, overriding disable_innertube=True because '
+                    'InnerTube challenges are currently broken for the '
+                    'web_music client. Pass disable_innertube=1 to suppress '
+                    'this warning.'
+                )
             disable_innertube = True
 
         try:
@@ -127,16 +154,23 @@ class BgUtilHTTPPTP(BgUtilPTPBase):
                     f'{self._base_url}/get_pot', data=json.dumps({
                         'bypass_cache': request.bypass_cache,
                         'challenge': challenge,
-                        'content_binding': get_webpo_content_binding(request)[0],
+                        'content_binding': get_webpo_content_binding(
+                            request
+                        )[0],
                         'disable_innertube': disable_innertube,
-                        'disable_tls_verification': not request.request_verify_tls,
+                        'disable_tls_verification': (
+                            not request.request_verify_tls
+                        ),
                         'proxy': request.request_proxy,
                         'innertube_context': request.innertube_context,
                         'source_address': request.request_source_address,
                     }).encode(), headers={'Content-Type': 'application/json'},
-                    extensions={'timeout': self._GETPOT_TIMEOUT}, proxies={'all': None}),
+                    extensions={'timeout': self._GETPOT_TIMEOUT},
+                    proxies={'all': None}
+                ),
                 note=f'Generating a {request.context.value} PO Token for '
-                f'{request.internal_client_name} client via bgutil HTTP server',
+                f'{request.internal_client_name} client via bgutil '
+                f'HTTP server',
             )
         except Exception as e:
             raise PoTokenProviderError(
@@ -145,14 +179,19 @@ class BgUtilHTTPPTP(BgUtilPTPBase):
         try:
             response_json = json.load(response)
         except Exception as e:
+            response_data = response.read().decode()
             raise PoTokenProviderError(
-                f'Error parsing response JSON (caused by {e!r}). response = {response.read().decode()}') from e
+                f'Error parsing response JSON (caused by {e!r}). '
+                f'response = {response_data}'
+            ) from e
 
         if error_msg := response_json.get('error'):
             raise PoTokenProviderError(error_msg)
         if 'poToken' not in response_json:
             raise PoTokenProviderError(
-                f'Server did not respond with a poToken. Received response: {response}')
+                f'Server did not respond with a poToken. '
+                f'Received response: {response}'
+            )
 
         po_token = response_json['poToken']
         self.logger.trace(f'Generated POT: {po_token}')

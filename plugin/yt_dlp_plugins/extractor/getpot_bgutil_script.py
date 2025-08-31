@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import json
 import os.path
-import re
 import shutil
 import subprocess
 
@@ -42,12 +41,35 @@ class BgUtilScriptPTP(BgUtilPTPBase):
 
         if deprecated_script_path:
             self._warn_and_raise(
-                "'youtube:getpot_bgutil_script' extractor arg is deprecated, use 'youtubepot-bgutilscript:script_path' instead")
+                "'youtube:getpot_bgutil_script' extractor arg is deprecated, "
+                "use 'youtubepot-bgutilscript:script_path' instead")
 
         # default if no arg was passed
-        home = os.path.expanduser('~')
-        default_path = os.path.join(
-            home, 'bgutil-ytdlp-pot-provider', 'server', 'build', 'generate_once.js')
+        # Check common locations for the Rust executable
+        possible_paths = [
+            'bgutil-pot-generate',  # if in PATH
+            os.path.join(
+                os.getcwd(), 'target', 'debug', 'bgutil-pot-generate'
+            ),
+            os.path.join(
+                os.getcwd(), 'target', 'release', 'bgutil-pot-generate'
+            ),
+            os.path.expanduser(
+                '~/bgutil-ytdlp-pot-provider/target/debug/bgutil-pot-generate'
+            ),
+            os.path.expanduser(
+                '~/bgutil-ytdlp-pot-provider/target/release/'
+                'bgutil-pot-generate'
+            ),
+        ]
+        
+        for path in possible_paths:
+            if shutil.which(path) or os.path.isfile(path):
+                self.logger.debug(f'Found bgutil-pot-generate at: {path}')
+                return path
+        
+        # Fallback to first option if none found
+        default_path = possible_paths[0]
         self.logger.debug(
             f'No script path passed, defaulting to {default_path}')
         return default_path
@@ -56,64 +78,38 @@ class BgUtilScriptPTP(BgUtilPTPBase):
         return self._check_script(self._script_path)
 
     @functools.cached_property
-    def _node_path(self):
-        node_path = shutil.which('node')
-        if node_path is None:
-            self.logger.trace('node is not in PATH')
-        vsn = self._check_node_version(node_path)
-        if vsn:
-            self.logger.trace(f'Node version: {vsn}')
-            return node_path
+    def _executable_path(self):
+        executable_path = shutil.which(self._script_path)
+        if executable_path:
+            return executable_path
+        elif os.path.isfile(self._script_path):
+            return self._script_path
+        return None
 
     def _check_script_impl(self, script_path):
-        if not os.path.isfile(script_path):
+        executable_path = self._executable_path
+        if not executable_path:
             self.logger.debug(
-                f"Script path doesn't exist: {script_path}")
+                f"Executable path doesn't exist: {script_path}")
             return False
-        if os.path.basename(script_path) != 'generate_once.js':
-            self.logger.warning(
-                'Incorrect script passed to extractor args. Path to generate_once.js required', once=True)
-            return False
-        node_path = self._node_path
-        if not node_path:
-            return False
+        
         stdout, stderr, returncode = Popen.run(
-            [self._node_path, script_path, '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            timeout=self._GET_SERVER_VSN_TIMEOUT)
+            [executable_path, '--version'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=self._GET_SERVER_VSN_TIMEOUT
+        )
         if returncode:
             self.logger.warning(
-                f'Failed to check script version. '
-                f'Script returned {returncode} exit status. '
-                f'Script stdout: {stdout}; Script stderr: {stderr}',
+                f'Failed to check executable version. '
+                f'Executable returned {returncode} exit status. '
+                f'stdout: {stdout}; stderr: {stderr}',
                 once=True)
             return False
         else:
-            self._check_version(stdout.strip(), name='script')
+            self.logger.debug(f'bgutil-pot-generate version: {stdout.strip()}')
             return True
-
-    def _check_node_version(self, node_path):
-        try:
-            stdout, stderr, returncode = Popen.run(
-                [node_path, '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                timeout=self._GET_SERVER_VSN_TIMEOUT)
-            stdout = stdout.strip()
-            mobj = re.match(r'v(\d+)\.(\d+)\.(\d+)', stdout)
-            if returncode or not mobj:
-                raise ValueError
-            node_vsn = tuple(map(int, mobj.groups()))
-            if node_vsn >= self._MIN_NODE_VSN:
-                return node_vsn
-            raise RuntimeError
-        except RuntimeError:
-            min_vsn_str = 'v' + '.'.join(str(v) for v in self._MIN_NODE_VSN)
-            self.logger.warning(
-                f'Node version too low. '
-                f'(got {stdout}, but at least {min_vsn_str} is required)')
-        except (subprocess.TimeoutExpired, ValueError):
-            self.logger.warning(
-                f'Failed to check node version. '
-                f'Node returned {returncode} exit status. '
-                f'Node stdout: {stdout}; Node stderr: {stderr}')
 
     def _real_request_pot(
         self,
@@ -121,9 +117,14 @@ class BgUtilScriptPTP(BgUtilPTPBase):
     ) -> PoTokenResponse:
         # used for CI check
         self.logger.trace(
-            f'Generating POT via script: {self._script_path}')
+            f'Generating POT via Rust executable: {self._script_path}')
 
-        command_args = [self._node_path, self._script_path]
+        executable_path = self._executable_path
+        if not executable_path:
+            raise PoTokenProviderError(
+                f'Executable not found: {self._script_path}')
+
+        command_args = [executable_path]
         if proxy := request.request_proxy:
             command_args.extend(['-p', proxy])
         command_args.extend(['-c', get_webpo_content_binding(request)[0]])
@@ -137,21 +138,32 @@ class BgUtilScriptPTP(BgUtilPTPBase):
 
         self.logger.info(
             f'Generating a {request.context.value} PO Token for '
-            f'{request.internal_client_name} client via bgutil script',
+            f'{request.internal_client_name} client via bgutil '
+            f'Rust executable',
         )
         self.logger.debug(
-            f'Executing command to get POT via script: {" ".join(command_args)}')
+            f'Executing command to get POT via Rust executable: '
+            f'{" ".join(command_args)}'
+        )
 
         try:
             stdout, stderr, returncode = Popen.run(
-                command_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                timeout=self._GETPOT_TIMEOUT)
+                command_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=self._GETPOT_TIMEOUT
+            )
         except subprocess.TimeoutExpired as e:
             raise PoTokenProviderError(
-                f'_get_pot_via_script failed: Timeout expired when trying to run script (caused by {e!r})')
+                f'_get_pot_via_script failed: Timeout expired when trying '
+                f'to run executable (caused by {e!r})'
+            )
         except Exception as e:
             raise PoTokenProviderError(
-                f'_get_pot_via_script failed: Unable to run script (caused by {e!r})') from e
+                f'_get_pot_via_script failed: Unable to run executable '
+                f'(caused by {e!r})'
+            ) from e
 
         msg = ''
         if stdout_extra := stdout.strip().splitlines()[:-1]:
@@ -172,10 +184,12 @@ class BgUtilScriptPTP(BgUtilPTPBase):
             script_data_resp = json.loads(json_resp)
         except json.JSONDecodeError as e:
             raise PoTokenProviderError(
-                f'Error parsing JSON response from _get_pot_via_script (caused by {e!r})') from e
+                f'Error parsing JSON response from _get_pot_via_script '
+                f'(caused by {e!r})'
+            ) from e
         if 'poToken' not in script_data_resp:
             raise PoTokenProviderError(
-                'The script did not respond with a po_token')
+                'The executable did not respond with a po_token')
         return PoTokenResponse(po_token=script_data_resp['poToken'])
 
 
