@@ -43,6 +43,48 @@ jobs:
         prerelease: false
         body_path: release_notes.md
 
+    - name: Package Plugin for Release
+      shell: bash
+      run: |
+        cd plugin/
+        
+        # Create bundle directory
+        mkdir -p bundle/
+        
+        # Copy README.md to plugin directory
+        cp ../README.md .
+        
+        # Copy yt_dlp_plugins to bundle
+        cp -r yt_dlp_plugins bundle/
+        
+        # Enter bundle directory and clean Python cache files
+        cd bundle/
+        find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete
+        
+        # Get project name from pyproject.toml
+        PROJECT_NAME=$(python3 -c "
+        import tomllib
+        with open('../pyproject.toml', 'rb') as f:
+            data = tomllib.load(f)
+        print(data['project']['name'])
+        ")
+        
+        # Create ZIP file
+        zip -9 --recurse-paths "${PROJECT_NAME}.zip" *
+        
+        # Output file path for subsequent steps
+        echo "PLUGIN_ZIP_PATH=plugin/bundle/${PROJECT_NAME}.zip" >> $GITHUB_ENV
+        echo "PLUGIN_ZIP_NAME=${PROJECT_NAME}.zip" >> $GITHUB_ENV
+        
+        # Verify the ZIP file was created
+        ls -la "${PROJECT_NAME}.zip"
+        echo "Created plugin package: ${PROJECT_NAME}.zip"
+
+    - name: Upload Plugin to Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ env.PLUGIN_ZIP_PATH }}
+
   build:
     name: Build and Upload
     runs-on: ${{ matrix.os }}
