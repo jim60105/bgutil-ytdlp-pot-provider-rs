@@ -2,8 +2,8 @@
 //!
 //! Contains the core logic for running the HTTP server mode.
 
-use anyhow::Result;
 use crate::{Settings, server::app, utils::version};
+use anyhow::Result;
 
 /// Arguments for server mode
 #[derive(Debug)]
@@ -46,10 +46,7 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
         }
     };
 
-    tracing::info!(
-        "Starting POT server v{}",
-        version::get_version()
-    );
+    tracing::info!("Starting POT server v{}", version::get_version());
 
     // Create the Axum application
     let app = app::create_app(settings.clone());

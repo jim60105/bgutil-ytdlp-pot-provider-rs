@@ -35,7 +35,7 @@ use bgutil_ytdlp_pot_provider::cli::{
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
-    
+
     // Generate mode options (when no subcommand is provided)
     /// Content binding (video ID, visitor data, etc.)
     #[arg(short, long, value_name = "CONTENT_BINDING")]
@@ -77,11 +77,11 @@ enum Commands {
         /// Port to listen on
         #[arg(short, long, default_value = "4416")]
         port: u16,
-        
+
         /// Host to bind to
         #[arg(long, default_value = "::")]
         host: String,
-        
+
         /// Enable verbose logging
         #[arg(short, long)]
         verbose: bool,
@@ -91,9 +91,13 @@ enum Commands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    
+
     match cli.command {
-        Some(Commands::Server { port, host, verbose }) => {
+        Some(Commands::Server {
+            port,
+            host,
+            verbose,
+        }) => {
             // Server mode logic
             let args = ServerArgs {
                 port,
@@ -120,8 +124,6 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,9 +132,14 @@ mod tests {
     #[test]
     fn test_server_subcommand() {
         let cli = Cli::parse_from(&[
-            "bgutil-pot", "server", "--port", "8080", "--host", "0.0.0.0"
+            "bgutil-pot",
+            "server",
+            "--port",
+            "8080",
+            "--host",
+            "0.0.0.0",
         ]);
-        
+
         match cli.command {
             Some(Commands::Server { port, host, .. }) => {
                 assert_eq!(port, 8080);
@@ -141,25 +148,21 @@ mod tests {
             _ => panic!("Expected server subcommand"),
         }
     }
-    
+
     #[test]
     fn test_generate_mode() {
-        let cli = Cli::parse_from(&[
-            "bgutil-pot", "--content-binding", "test", "--verbose"
-        ]);
-        
+        let cli = Cli::parse_from(&["bgutil-pot", "--content-binding", "test", "--verbose"]);
+
         assert!(cli.command.is_none());
         assert_eq!(cli.content_binding, Some("test".to_string()));
         assert!(cli.verbose);
     }
-    
+
     #[test]
     fn test_parameter_conflicts() {
         // Test that clap prevents server subcommand from accepting generate arguments
-        let result = Cli::try_parse_from(&[
-            "bgutil-pot", "server", "--content-binding", "test"
-        ]);
-        
+        let result = Cli::try_parse_from(&["bgutil-pot", "server", "--content-binding", "test"]);
+
         // Should fail due to clap structure preventing invalid arguments
         assert!(result.is_err());
         // clap error types have their own formatting
@@ -168,9 +171,13 @@ mod tests {
     #[test]
     fn test_server_default_values() {
         let cli = Cli::parse_from(&["bgutil-pot", "server"]);
-        
+
         match cli.command {
-            Some(Commands::Server { port, host, verbose }) => {
+            Some(Commands::Server {
+                port,
+                host,
+                verbose,
+            }) => {
                 assert_eq!(port, 4416);
                 assert_eq!(host, "::");
                 assert!(!verbose);
@@ -182,7 +189,7 @@ mod tests {
     #[test]
     fn test_generate_default_values() {
         let cli = Cli::parse_from(&["bgutil-pot"]);
-        
+
         assert!(cli.command.is_none());
         assert!(cli.content_binding.is_none());
         assert!(!cli.bypass_cache);
