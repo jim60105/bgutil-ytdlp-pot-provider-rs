@@ -11,7 +11,7 @@ ARG NAME=bgutil-pot-server
 ########################################
 # Chef base stage
 ########################################
-FROM docker.io/lukemathwalker/cargo-chef:latest-rust-1.89.0 AS chef
+FROM docker.io/lukemathwalker/cargo-chef:latest-rust-1.89.0-slim AS chef
 WORKDIR /app
 
 # Create directories with correct permissions
@@ -45,7 +45,8 @@ RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
     # dependencies for git2-rs and other system libs
     apt-get update && apt-get install -y \
     pkg-config \
-    libssl-dev
+    libssl-dev \
+    curl
 
 RUN --mount=source=/app/recipe.json,target=recipe.json,from=planner \
     cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path recipe.json --all-targets --locked
@@ -88,14 +89,17 @@ RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
     echo "deb http://deb.debian.org/debian bookworm-backports main" >> /etc/apt/sources.list && \
     apt-get update && apt-get install -y -t bookworm-backports \
     upx-ucl && \
-    apt-get install -y dumb-init && \
+    apt-get install -y wget && \
     cp /tmp/app /${NAME} && \
-    #! UPX will skip small files and large files
-    # https://github.com/upx/upx/blob/5bef96806860382395d9681f3b0c69e0f7e853cf/src/p_unix.cpp#L80
-    # https://github.com/upx/upx/blob/b0dc48316516d236664dfc5f1eb5f2de00fc0799/src/conf.h#L134
+    # Download static dumb-init binary \
+    wget -O /dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 && \
+    chmod +x /dumb-init && \
+    #! UPX will skip small files and large files \
+    # https://github.com/upx/upx/blob/5bef96806860382395d9681f3b0c69e0f7e853cf/src/p_unix.cpp#L80 \
+    # https://github.com/upx/upx/blob/b0dc48316516d236664dfc5f1eb5f2de00fc0799/src/conf.h#L134 \
     (upx --best --lzma /${NAME} || true) && \
-    (upx --best --lzma /usr/bin/dumb-init || true) && \
-    apt-get remove -y upx-ucl
+    (upx --best --lzma /dumb-init || true) && \
+    apt-get remove -y upx-ucl wget
 
 ########################################
 # Binary stage
@@ -111,17 +115,17 @@ COPY --chown=0:0 --chmod=777 --from=compress /${NAME} /${NAME}
 ########################################
 FROM scratch AS final
 
-ARG UID
-
-# Create directories with correct permissions
-COPY --chown=$UID:0 --chmod=775 --from=chef /licenses /licenses
-
 # Copy CA trust store
 # Rust seems to use this one: https://stackoverflow.com/a/57295149/8706033
 COPY --from=chef /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem
 
-# dumb-init
-COPY --chown=$UID:0 --chmod=775 --from=compress /usr/bin/dumb-init /dumb-init
+ARG UID
+
+# Copy static dumb-init binary
+COPY --chown=$UID:0 --chmod=775 --from=compress /dumb-init /dumb-init
+
+# Create directories with correct permissions
+COPY --chown=$UID:0 --chmod=775 --from=chef /licenses /licenses
 
 # Copy licenses (OpenShift Policy)
 COPY --chown=$UID:0 --chmod=775 LICENSE /licenses/LICENSE
@@ -143,7 +147,7 @@ USER $UID
 STOPSIGNAL SIGINT
 
 # Use dumb-init as PID 1 to handle signals properly
-ENTRYPOINT ["dumb-init", "--", "app"]
+ENTRYPOINT ["/dumb-init", "--", "/app"]
 CMD ["--host", "0.0.0.0"]
 
 ARG VERSION
