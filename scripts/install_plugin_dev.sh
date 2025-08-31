@@ -26,17 +26,16 @@ if [ "$ADD_CONF" = true ]; then
         echo "WARN: yt-dlp.conf already exists at $YTDLP_CONF. Delete it if you want to recreate it." >&2
     else
         echo "Adding yt-dlp configuration to $YTDLP_CONF"
-        echo -e "--extractor-args \"youtubepot-bgutilscript:script_path=$(realpath server/build/generate_once.js)\"" > "$YTDLP_CONF"
+        echo -e "--extractor-args \"youtubepot-bgutilscript:script_path=$(realpath target/debug/bgutil-pot-generate)\"" > "$YTDLP_CONF"
         echo -e '--extractor-args "youtube:player-client=mweb"' >> "$YTDLP_CONF"
     fi
 else
     echo "WARN: yt-dlp.conf was not created. To add it, run: $0 --add-conf"
 fi
 
-cd server/
-echo "Installing server dependencies"
-npm ci
-echo "Compiling TypeScript files"
-npx tsc
+echo "Building Rust binaries"
+cargo build
 echo "DONE!"
-echo -e "Use the following command to start the server: \nnode server/build/main.js"
+echo -e "Use the following commands:"
+echo -e "  Start the server: ./target/debug/bgutil-pot-server"
+echo -e "  Generate single token: ./target/debug/bgutil-pot-generate"
