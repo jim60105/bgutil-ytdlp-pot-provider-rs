@@ -29,8 +29,8 @@ The system consists of two main components working together:
 ```
 yt-dlp
   ↓ (via POT plugin)
-Python Plugin (read-only)
-  ↓ HTTP API calls
+Python Plugin
+  ↓ HTTP API calls or CLI calls
 Rust POT Provider
   ↓ BotGuard integration
 YouTube BotGuard API
@@ -43,8 +43,8 @@ yt-dlp (bypasses bot check)
 1. **Rust POT Provider** (this project): Two operation modes:
    - **HTTP Server Mode** (`bgutil-pot server`): Always-running REST API service (recommended)
    - **Script Mode** (`bgutil-pot`): Per-request command-line execution
-   
-2. **Python Plugin** (inherited from TypeScript version): Integrates with yt-dlp's POT framework to automatically fetch tokens from the provider.
+
+2. **Python Plugin**: Integrates with yt-dlp's POT framework to automatically fetch tokens from the provider.
 
 ## Installation
 
@@ -221,7 +221,7 @@ yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot
 Both modes support comprehensive configuration via:
 
 1. Command line arguments (highest priority)
-2. Environment variables  
+2. Environment variables
 3. Configuration file
 4. Default values (lowest priority)
 
