@@ -45,9 +45,13 @@ class BgUtilCliPTP(BgUtilPTPBase):
                 "use 'youtubepot-bgutilcli:cli_path' instead")
 
         # default if no arg was passed
-        # Check common locations for the Rust executable
-        possible_paths = [
-            'bgutil-pot-generate',  # if in PATH
+        # First, try to find the executable in PATH
+        if self._get_executable_path('bgutil-pot-generate'):
+            self.logger.debug('Found bgutil-pot-generate in PATH')
+            return 'bgutil-pot-generate'
+
+        # Then check common file locations
+        file_paths = [
             os.path.join(
                 os.getcwd(), 'target', 'debug', 'bgutil-pot-generate'
             ),
@@ -62,37 +66,42 @@ class BgUtilCliPTP(BgUtilPTPBase):
                 'bgutil-pot-generate'
             ),
         ]
-        
-        for path in possible_paths:
-            if shutil.which(path) or os.path.isfile(path):
+
+        for path in file_paths:
+            if self._get_executable_path(path):
                 self.logger.debug(f'Found bgutil-pot-generate at: {path}')
                 return path
-        
-        # Fallback to first option if none found
-        default_path = possible_paths[0]
+
+        # Fallback to PATH name if no file found
+        default_path = 'bgutil-pot-generate'
         self.logger.debug(
-            f'No CLI path passed, defaulting to {default_path}')
+            f'No CLI path found, defaulting to {default_path}')
         return default_path
 
     def is_available(self):
         return self._check_cli(self._cli_path)
 
-    @functools.cached_property
-    def _executable_path(self):
-        executable_path = shutil.which(self._cli_path)
-        if executable_path:
-            return executable_path
-        elif os.path.isfile(self._cli_path):
-            return self._cli_path
+    def _get_executable_path(self, cli_path):
+        """Get the actual executable path, checking PATH or file existence."""
+        # For relative names (like 'bgutil-pot-generate'), search in PATH
+        if os.path.sep not in cli_path:
+            executable_path = shutil.which(cli_path)
+            if executable_path:
+                return executable_path
+
+        # For absolute/relative paths, check file existence directly
+        if os.path.isfile(cli_path):
+            return cli_path
+
         return None
 
     def _check_cli_impl(self, cli_path):
-        executable_path = self._executable_path
+        executable_path = self._get_executable_path(cli_path)
         if not executable_path:
             self.logger.debug(
                 f"Executable path doesn't exist: {cli_path}")
             return False
-        
+
         stdout, stderr, returncode = Popen.run(
             [executable_path, '--version'],
             stdout=subprocess.PIPE,
@@ -119,7 +128,7 @@ class BgUtilCliPTP(BgUtilPTPBase):
         self.logger.trace(
             f'Generating POT via Rust executable: {self._cli_path}')
 
-        executable_path = self._executable_path
+        executable_path = self._get_executable_path(self._cli_path)
         if not executable_path:
             raise PoTokenProviderError(
                 f'Executable not found: {self._cli_path}')
