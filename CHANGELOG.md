@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-09-01
+
+### Added
+
+- Added: Enhanced test execution with cargo nextest integration for improved performance and reporting capabilities
+
+### Fixed
+
+- Fixed: Test isolation issue causing CI failures in container builds by implementing static mutex synchronization for environment variable tests
+- Fixed: Race conditions between parallel test execution affecting environment variables
+
+### Changed
+
+- Changed: Container test framework migrated from cargo test to cargo nextest for better test performance and parallel execution
+- Changed: Release workflow timing improved with proper wait steps for asset upload reliability
+
 ## [0.2.0] - 2025-08-31
 
 ### Added
@@ -104,7 +120,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/tag/v0.1.0
