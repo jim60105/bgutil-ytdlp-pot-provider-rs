@@ -1,33 +1,13 @@
-//! Script mode binary for one-time POT token generation
+//! Generate mode CLI logic
 //!
-//! Generates a single POT token and outputs it to stdout.
-//! This mode is used when yt-dlp invokes the provider as a script.
-//!
-//! # Usage
-//!
-//! ```bash
-//! bgutil-pot-generate --content-binding "video_id"
-//! ```
-//!
-//! # Output
-//!
-//! Outputs a JSON object containing the POT token:
-//! ```json
-//! {
-//!   "poToken": "generated_token",
-//!   "contentBinding": "video_id",
-//!   "expiresAt": "2025-01-01T00:00:00Z"
-//! }
-//! ```
-//!
-//! Based on TypeScript implementation in `server/src/generate_once.ts`
+//! Contains the core logic for the script mode POT token generation.
 
-use clap::Parser;
+use anyhow::Result;
 use tracing::{debug, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use bgutil_ytdlp_pot_provider::{
-    Result, SessionManager, Settings,
+use crate::{
+    SessionManager, Settings,
     types::PotRequest,
     utils::{
         VERSION,
@@ -35,60 +15,30 @@ use bgutil_ytdlp_pot_provider::{
     },
 };
 
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-#[command(name = "bgutil-pot-generate")]
-#[command(disable_version_flag = true)]
-struct Cli {
-    /// Content binding (video ID, visitor data, etc.)
-    #[arg(short, long, value_name = "CONTENT_BINDING")]
-    content_binding: Option<String>,
-
-    /// Visitor data (DEPRECATED: use --content-binding instead)
-    #[arg(short = 'v', long, value_name = "VISITOR_DATA")]
-    visitor_data: Option<String>,
-
-    /// Data sync ID (DEPRECATED: use --content-binding instead)
-    #[arg(short = 'd', long, value_name = "DATA_SYNC_ID")]
-    data_sync_id: Option<String>,
-
-    /// Proxy server URL (http://host:port, socks5://host:port, etc.)
-    #[arg(short, long, value_name = "PROXY")]
-    proxy: Option<String>,
-
-    /// Bypass cache and force new token generation
-    #[arg(short, long)]
-    bypass_cache: bool,
-
-    /// Source IP address for outbound connections
-    #[arg(short, long, value_name = "SOURCE_ADDRESS")]
-    source_address: Option<String>,
-
-    /// Disable TLS certificate verification
-    #[arg(long)]
-    disable_tls_verification: bool,
-
-    /// Show version information
-    #[arg(long)]
-    version: bool,
-
-    /// Enable verbose logging
-    #[arg(long)]
-    verbose: bool,
+/// Arguments for generate mode
+#[derive(Debug)]
+pub struct GenerateArgs {
+    pub content_binding: Option<String>,
+    pub visitor_data: Option<String>,
+    pub data_sync_id: Option<String>,
+    pub proxy: Option<String>,
+    pub bypass_cache: bool,
+    pub source_address: Option<String>,
+    pub disable_tls_verification: bool,
+    pub version: bool,
+    pub verbose: bool,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
-
+/// Run generate mode with the given arguments
+pub async fn run_generate_mode(args: GenerateArgs) -> Result<()> {
     // Handle version flag early
-    if cli.version {
+    if args.version {
         println!("{}", VERSION);
         return Ok(());
     }
 
     // Initialize logging (minimal for script mode)
-    if cli.verbose {
+    if args.verbose {
         tracing_subscriber::registry()
             .with(
                 tracing_subscriber::EnvFilter::try_from_default_env()
@@ -107,19 +57,19 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Handle deprecated parameters
-    if let Some(ref _data_sync_id) = cli.data_sync_id {
+    if let Some(ref _data_sync_id) = args.data_sync_id {
         eprintln!("Data sync id is deprecated, use --content-binding instead");
         std::process::exit(1);
     }
 
-    if let Some(ref _visitor_data) = cli.visitor_data {
+    if let Some(ref _visitor_data) = args.visitor_data {
         eprintln!("Visitor data is deprecated, use --content-binding instead");
         std::process::exit(1);
     }
 
     debug!(
         "Starting POT generation with parameters: content_binding={:?}, proxy={:?}, bypass_cache={}",
-        cli.content_binding, cli.proxy, cli.bypass_cache
+        args.content_binding, args.proxy, args.bypass_cache
     );
 
     // Initialize file cache
@@ -140,7 +90,7 @@ async fn main() -> anyhow::Result<()> {
         .await;
 
     // Build POT request
-    let request = build_pot_request(&cli)?;
+    let request = build_pot_request(&args)?;
 
     // Generate POT token
     match session_manager.generate_pot_token(&request).await {
@@ -175,26 +125,26 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Build POT request from CLI arguments
-fn build_pot_request(cli: &Cli) -> Result<PotRequest> {
+fn build_pot_request(args: &GenerateArgs) -> Result<PotRequest> {
     let mut request = PotRequest::new();
 
-    if let Some(ref content_binding) = cli.content_binding {
+    if let Some(ref content_binding) = args.content_binding {
         request = request.with_content_binding(content_binding);
     }
 
-    if let Some(ref proxy) = cli.proxy {
+    if let Some(ref proxy) = args.proxy {
         request = request.with_proxy(proxy);
     }
 
-    if cli.bypass_cache {
+    if args.bypass_cache {
         request = request.with_bypass_cache(true);
     }
 
-    if let Some(ref source_address) = cli.source_address {
+    if let Some(ref source_address) = args.source_address {
         request = request.with_source_address(source_address);
     }
 
-    if cli.disable_tls_verification {
+    if args.disable_tls_verification {
         request = request.with_disable_tls_verification(true);
     }
 
@@ -210,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_build_pot_request() {
-        let cli = Cli {
+        let args = GenerateArgs {
             content_binding: Some("test_video_id".to_string()),
             proxy: Some("http://proxy:8080".to_string()),
             bypass_cache: true,
@@ -223,7 +173,7 @@ mod tests {
             verbose: false,
         };
 
-        let request = build_pot_request(&cli).unwrap();
+        let request = build_pot_request(&args).unwrap();
 
         assert_eq!(request.content_binding, Some("test_video_id".to_string()));
         assert_eq!(request.proxy, Some("http://proxy:8080".to_string()));

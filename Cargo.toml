@@ -125,9 +125,5 @@ debug = true
 split-debuginfo = "unpacked"
 
 [[bin]]
-name = "bgutil-pot-server"
-path = "src/bin/server.rs"
-
-[[bin]]
-name = "bgutil-pot-generate"
-path = "src/bin/generate.rs"
+name = "bgutil-pot"
+path = "src/main.rs"

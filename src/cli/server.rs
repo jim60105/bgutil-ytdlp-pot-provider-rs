@@ -1,45 +1,22 @@
-//! HTTP server binary for POT token generation
+//! Server mode CLI logic
 //!
-//! Starts an HTTP server that provides REST API endpoints for generating
-//! POT tokens. This is the recommended mode for production deployments.
-//!
-//! # Usage
-//!
-//! ```bash
-//! bgutil-pot-server --port 4416 --host 0.0.0.0
-//! ```
-//!
-//! # API Endpoints
-//!
-//! - `POST /get_pot`: Generate a new POT token
-//! - `GET /ping`: Health check endpoint
-//! - `POST /invalidate_caches`: Clear internal caches
+//! Contains the core logic for running the HTTP server mode.
 
-use clap::Parser;
+use anyhow::Result;
+use crate::{Settings, server::app, utils::version};
 
-/// HTTP server for POT token generation
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    /// Port to listen on
-    #[arg(short, long, default_value = "4416")]
-    port: u16,
-
-    /// Host to bind to
-    #[arg(long, default_value = "::")]
-    host: String,
-
-    /// Enable verbose logging
-    #[arg(short, long)]
-    verbose: bool,
+/// Arguments for server mode
+#[derive(Debug)]
+pub struct ServerArgs {
+    pub port: u16,
+    pub host: String,
+    pub verbose: bool,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
-
+/// Run server mode with the given arguments
+pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
     // Initialize logging
-    if cli.verbose {
+    if args.verbose {
         tracing_subscriber::fmt()
             .with_max_level(tracing::Level::DEBUG)
             .init();
@@ -50,11 +27,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Load configuration
-    let settings = match bgutil_ytdlp_pot_provider::Settings::from_env() {
+    let settings = match Settings::from_env() {
         Ok(mut settings) => {
             // Override with CLI arguments
-            settings.server.host = cli.host.clone();
-            settings.server.port = cli.port;
+            settings.server.host = args.host.clone();
+            settings.server.port = args.port;
             settings
         }
         Err(e) => {
@@ -62,27 +39,27 @@ async fn main() -> anyhow::Result<()> {
                 "Failed to load settings from environment: {}. Using defaults.",
                 e
             );
-            let mut settings = bgutil_ytdlp_pot_provider::Settings::default();
-            settings.server.host = cli.host.clone();
-            settings.server.port = cli.port;
+            let mut settings = Settings::default();
+            settings.server.host = args.host.clone();
+            settings.server.port = args.port;
             settings
         }
     };
 
     tracing::info!(
         "Starting POT server v{}",
-        bgutil_ytdlp_pot_provider::utils::version::get_version()
+        version::get_version()
     );
 
     // Create the Axum application
-    let app = bgutil_ytdlp_pot_provider::server::app::create_app(settings.clone());
+    let app = app::create_app(settings.clone());
 
     // Parse address and attempt IPv6/IPv4 fallback like TypeScript implementation
-    let addr = parse_and_bind_address(&cli.host, cli.port).await?;
+    let addr = parse_and_bind_address(&args.host, args.port).await?;
 
     tracing::info!(
         "POT server v{} listening on {}",
-        bgutil_ytdlp_pot_provider::utils::version::get_version(),
+        version::get_version(),
         addr
     );
 
@@ -98,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
 /// Implements the same IPv6 fallback logic as TypeScript implementation:
 /// - First try to bind to IPv6 (::)
 /// - If that fails, fall back to IPv4 (0.0.0.0)
-pub async fn parse_and_bind_address(host: &str, port: u16) -> anyhow::Result<std::net::SocketAddr> {
+pub async fn parse_and_bind_address(host: &str, port: u16) -> Result<std::net::SocketAddr> {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
     // Try to parse as IP address first
@@ -227,44 +204,5 @@ mod tests {
         // localhost should fail since we only accept IP addresses or :: and 0.0.0.0
         let result = parse_and_bind_address("localhost", 8080).await;
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_cli_default_values() {
-        use clap::Parser;
-
-        // Test default CLI values
-        let cli = Cli::parse_from(&["bgutil-pot-server"]);
-        assert_eq!(cli.port, 4416);
-        assert_eq!(cli.host, "::");
-        assert!(!cli.verbose);
-    }
-
-    #[test]
-    fn test_cli_custom_values() {
-        use clap::Parser;
-
-        // Test custom CLI values
-        let cli = Cli::parse_from(&[
-            "bgutil-pot-server",
-            "--port",
-            "8080",
-            "--host",
-            "0.0.0.0",
-            "--verbose",
-        ]);
-        assert_eq!(cli.port, 8080);
-        assert_eq!(cli.host, "0.0.0.0");
-        assert!(cli.verbose);
-    }
-
-    #[test]
-    fn test_cli_short_args() {
-        use clap::Parser;
-
-        // Test short arguments
-        let cli = Cli::parse_from(&["bgutil-pot-server", "-p", "9000", "-v"]);
-        assert_eq!(cli.port, 9000);
-        assert!(cli.verbose);
     }
 }
