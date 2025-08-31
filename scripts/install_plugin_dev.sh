@@ -15,6 +15,7 @@ done
 
 
 PLUGIN_DIR=~/yt-dlp-plugins/bgutil-ytdlp-pot-provider/
+rm -rf "$PLUGIN_DIR"
 mkdir -p "$PLUGIN_DIR"
 echo "Installing plugin to $PLUGIN_DIR"
 cp -r plugin/* "$PLUGIN_DIR"
