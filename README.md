@@ -16,17 +16,17 @@ This Rust implementation uses [LuanRT's BotGuard interfacing library](https://gi
 
 This Rust rewrite offers significant improvements over the original TypeScript version:
 
+- **📦 Easy Deployment**: Single binary with no runtime dependencies
 - **🚀 Performance**: Sub-second token generation with optimized caching
 - **💾 Memory Efficiency**: Lower memory footprint and better resource management  
 - **🔒 Reliability**: Memory safety and robust error handling
-- **📦 Easy Deployment**: Single binary with no runtime dependencies
 - **🌐 Cross-Platform**: Native support for Linux, Windows, and macOS
 
 ## Architecture Overview
 
 The system consists of two main components working together:
 
-```
+```text
 yt-dlp
   ↓ (via POT plugin)
 Python Plugin
@@ -89,23 +89,31 @@ cargo install --path .
 
 #### Option C: Container (Docker/Podman)
 
+- Run the prebuilt container image
+
+  ```bash
+  podman run -p 4416:4416 ghcr.io/jim60105/bgutil-pot:latest
+  ```
+
+- Or build your own container image
+
+  ```bash
+  # Build the container image
+  podman build -t bgutil-pot .
+
+  # Run the container (basic usage)
+  podman run -p 4416:4416 bgutil-pot
+
+  # Run with custom configuration
+  podman run -p 8080:4416 -e RUST_LOG=debug bgutil-pot server --host 0.0.0.0 --port 4416
+
+  # Using Docker instead of Podman
+  docker build -f Containerfile -t bgutil-pot .
+  docker run -p 4416:4416 bgutil-pot
+  ```
+
 > [!NOTE]  
 > The Containerfile is designed for SELinux-enabled systems. On non-SELinux systems, remove the `,z` flags from `--mount` options.
-
-```bash
-# Build the container image
-podman build -f Containerfile -t bgutil-pot .
-
-# Run the container (basic usage)
-podman run -p 4416:4416 bgutil-pot
-
-# Run with custom configuration
-podman run -p 8080:4416 -e RUST_LOG=debug bgutil-pot server --host 0.0.0.0 --port 4416
-
-# Using Docker instead of Podman
-docker build -f Containerfile -t bgutil-pot .
-docker run -p 4416:4416 bgutil-pot
-```
 
 ### Step 2: Install the yt-dlp Plugin
 
@@ -385,12 +393,34 @@ cargo nextest run
 ./scripts/quality_check.sh
 ```
 
-## License
-
-This project is licensed under the GPL-3.0-or-later License. See [LICENSE](LICENSE) for details.
-
 ## Acknowledgments
 
 - [LuanRT](https://github.com/LuanRT) for the [BgUtils library](https://github.com/LuanRT/BgUtils)
+- [ThetaDev](https://codeberg.org/ThetaDev) for the [Rust implementation of POT Generator](https://codeberg.org/ThetaDev/rustypipe-botguard)
 - [Brainicism](https://github.com/Brainicism) for the [original TypeScript implementation](https://github.com/Brainicism/bgutil-ytdlp-pot-provider)
 - The [yt-dlp team](https://github.com/yt-dlp/yt-dlp) for the excellent POT provider framework
+
+## LICENSE
+
+> [!CAUTION]  
+> A GPLv3 licensed Containerfile means that you _**MUST**_ **distribute the source code with the same license**, if you
+>
+> - Re-distribute the image. (You can simply point to this GitHub repository if you doesn't made any code changes.)
+> - Distribute an image that uses code from this repository.
+> - Or **distribute an image based on this image**. (`FROM ghcr.io/jim60105/bgutil-pot` in your Containerfile)
+>
+> "Distribute" means to make the image available for other people to download, usually by pushing it to a public registry. If you are solely using it for your personal purposes, this has no impact on you.
+>
+> Please consult the [LICENSE](LICENSE) for more details.
+
+<img src="https://github.com/user-attachments/assets/d5d7ca99-79e5-41a3-af40-13e23d591777" alt="gplv3" width="300" />
+
+[GNU GENERAL PUBLIC LICENSE Version 3](LICENSE)
+
+Copyright (C) 2024 Jim Chen <Jim@ChenJ.im>, Brian Le <brainicism@gmail.com>.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
