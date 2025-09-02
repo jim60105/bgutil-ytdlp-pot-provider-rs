@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-09-02
+
+### Added
+
+- Added: Container image now includes yt-dlp plugin distribution for unified deployment
+- Added: Plugin files are now available at `/client/yt_dlp_plugins` path in container images
+
+### Fixed
+
+- Fixed: `/minter_cache` endpoint returning JSON-serialized strings instead of meaningful cache keys (#62)
+- Fixed: Cache key generation now returns human-readable patterns like "default", "proxy:<http://proxy:8080>" instead of problematic format
+
+### Changed
+
+- Changed: Container binary path updated to `/bgutil-pot` for consistency
+- Changed: Improved cache key format for better debugging experience
+
 ## [0.3.0] - 2025-09-01
 
 ### Added
@@ -120,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.0...v0.1.1
