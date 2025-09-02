@@ -139,7 +139,10 @@ COPY --chown=$UID:0 --chmod=775 LICENSE /licenses/LICENSE
 
 # Copy dist
 ARG NAME
-COPY --chown=$UID:0 --chmod=775 --from=compress /${NAME} /app
+COPY --chown=$UID:0 --chmod=775 --from=compress /${NAME} /bgutil-pot
+
+# Copy yt-dlp plugin for distribution with the container
+COPY --chown=$UID:0 --chmod=775 plugin/yt_dlp_plugins /client/yt_dlp_plugins
 
 ENV PATH="/"
 
@@ -154,7 +157,7 @@ USER $UID
 STOPSIGNAL SIGINT
 
 # Use dumb-init as PID 1 to handle signals properly
-ENTRYPOINT ["/dumb-init", "--", "/app"]
+ENTRYPOINT ["/dumb-init", "--", "/bgutil-pot"]
 CMD ["server", "--host", "0.0.0.0"]
 
 ARG VERSION
