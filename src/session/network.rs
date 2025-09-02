@@ -50,15 +50,17 @@ impl ProxySpec {
     /// Generate cache key for minter cache
     /// Corresponds to TypeScript CacheSpec.key
     pub fn cache_key(&self, remote_host: Option<&str>) -> String {
-        let ip = remote_host.map(|h| h.to_string());
-        if let Some(ip) = ip {
-            serde_json::to_string(&ip).unwrap_or_else(|_| "null".to_string())
+        if let Some(ip) = remote_host {
+            // Return IP directly without JSON serialization
+            ip.to_string()
         } else {
-            let data = vec![
-                self.proxy_url.as_deref().unwrap_or("null"),
-                self.source_address.as_deref().unwrap_or("null"),
-            ];
-            serde_json::to_string(&data).unwrap_or_else(|_| "[]".to_string())
+            // Generate meaningful cache key based on proxy and source address
+            match (&self.proxy_url, &self.source_address) {
+                (Some(proxy), Some(source)) => format!("{}:{}", proxy, source),
+                (Some(proxy), None) => format!("proxy:{}", proxy),
+                (None, Some(source)) => format!("source:{}", source),
+                (None, None) => "default".to_string(),
+            }
         }
     }
 }
@@ -216,34 +218,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn debug_current_cache_key_behavior() {
-        // Test case 1: no proxy, no source_address, no remote_host
-        let spec1 = ProxySpec::new();
-        let key1 = spec1.cache_key(None);
-        println!("Default spec cache key: '{}'", key1);
+    fn test_cache_key_without_remote_host() {
+        let proxy_spec = ProxySpec::default();
+        let key = proxy_spec.cache_key(None);
+        assert_eq!(key, "default");
+    }
 
-        // Test case 2: with proxy
-        let spec2 = ProxySpec::new().with_proxy("http://proxy:8080");
-        let key2 = spec2.cache_key(None);
-        println!("With proxy cache key: '{}'", key2);
+    #[test]
+    fn test_cache_key_with_proxy() {
+        let proxy_spec = ProxySpec::new().with_proxy("http://proxy:8080");
+        let key = proxy_spec.cache_key(None);
+        assert_eq!(key, "proxy:http://proxy:8080");
+    }
 
-        // Test case 3: with remote host
-        let spec3 = ProxySpec::new();
-        let key3 = spec3.cache_key(Some("192.168.1.100"));
-        println!("With remote host cache key: '{}'", key3);
+    #[test]
+    fn test_cache_key_with_source_address() {
+        let proxy_spec = ProxySpec::new().with_source_address("192.168.1.1");
+        let key = proxy_spec.cache_key(None);
+        assert_eq!(key, "source:192.168.1.1");
+    }
 
-        // Test case 4: with proxy and source address
-        let spec4 = ProxySpec::new()
+    #[test]
+    fn test_cache_key_with_proxy_and_source() {
+        let proxy_spec = ProxySpec::new()
             .with_proxy("http://proxy:8080")
             .with_source_address("192.168.1.1");
-        let key4 = spec4.cache_key(None);
-        println!("With proxy and source address cache key: '{}'", key4);
+        let key = proxy_spec.cache_key(None);
+        assert_eq!(key, "http://proxy:8080:192.168.1.1");
+    }
 
-        // Let's see the actual JSON format
-        assert!(!key1.is_empty());
-        assert!(!key2.is_empty());
-        assert!(!key3.is_empty());
-        assert!(!key4.is_empty());
+    #[test]
+    fn test_cache_key_with_remote_host() {
+        let proxy_spec = ProxySpec::default();
+        let key = proxy_spec.cache_key(Some("192.168.1.100"));
+        assert_eq!(key, "192.168.1.100");
+    }
+
+    #[test]
+    fn test_cache_key_remote_host_overrides_proxy() {
+        // When remote_host is provided, it should override proxy/source configuration
+        let proxy_spec = ProxySpec::new()
+            .with_proxy("http://proxy:8080")
+            .with_source_address("192.168.1.1");
+        let key = proxy_spec.cache_key(Some("192.168.1.100"));
+        assert_eq!(key, "192.168.1.100");
     }
 
     #[test]
@@ -287,6 +305,9 @@ mod tests {
         assert!(!key1.is_empty());
         assert!(!key2.is_empty());
         assert_ne!(key1, key2);
+        // Verify the new format
+        assert_eq!(key1, "http://proxy:8080:192.168.1.1");
+        assert_eq!(key2, "youtube.com");
     }
 
     #[test]
