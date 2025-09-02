@@ -216,6 +216,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn debug_current_cache_key_behavior() {
+        // Test case 1: no proxy, no source_address, no remote_host
+        let spec1 = ProxySpec::new();
+        let key1 = spec1.cache_key(None);
+        println!("Default spec cache key: '{}'", key1);
+
+        // Test case 2: with proxy
+        let spec2 = ProxySpec::new().with_proxy("http://proxy:8080");
+        let key2 = spec2.cache_key(None);
+        println!("With proxy cache key: '{}'", key2);
+
+        // Test case 3: with remote host
+        let spec3 = ProxySpec::new();
+        let key3 = spec3.cache_key(Some("192.168.1.100"));
+        println!("With remote host cache key: '{}'", key3);
+
+        // Test case 4: with proxy and source address
+        let spec4 = ProxySpec::new()
+            .with_proxy("http://proxy:8080")
+            .with_source_address("192.168.1.1");
+        let key4 = spec4.cache_key(None);
+        println!("With proxy and source address cache key: '{}'", key4);
+
+        // Let's see the actual JSON format
+        assert!(!key1.is_empty());
+        assert!(!key2.is_empty());
+        assert!(!key3.is_empty());
+        assert!(!key4.is_empty());
+    }
+
+    #[test]
     fn test_proxy_spec_creation() {
         let spec = ProxySpec::new();
         assert!(spec.proxy_url.is_none());
