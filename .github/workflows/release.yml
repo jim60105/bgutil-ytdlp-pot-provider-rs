@@ -91,6 +91,10 @@ jobs:
   build:
     name: Build and Upload
     runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
     strategy:
       matrix:
         include:
@@ -139,6 +143,12 @@ jobs:
         if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
           chmod +x $ASSET
         fi
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: |
+          bgutil-pot-${{ matrix.platform }}*
 
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
