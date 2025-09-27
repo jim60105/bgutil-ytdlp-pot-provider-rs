@@ -48,6 +48,10 @@ yt-dlp (bypasses bot check)
 
 ## Installation
 
+> [!TIP]  
+> Looking for an all-in-one solution?  
+> Check out the [jim60105/docker-yt-dlp](https://github.com/jim60105/docker-yt-dlp) container that includes yt-dlp and this POT provider and ready to use: `ghcr.io/jim60105/yt-dlp:pot`
+
 ### Prerequisites
 
 1. **yt-dlp**: Version `2025.05.22` or above
