@@ -6,11 +6,14 @@ use serde::{Deserialize, Deserializer, de};
 
 /// Deserialize a flexible boolean value that can be:
 /// - JSON boolean: `true`, `false`
-/// - Integer: `0` (false), `1` (true), or any non-zero positive integer (true)
-/// - String: `"0"`, `"1"`, `"false"`, `"true"`, `"False"`, `"True"` (case-insensitive)
+/// - Integer: `0` (false), any non-zero integer (true, negative integers treated as false for safety)
+/// - String: `"0"`, `"1"`, `"false"`, `"true"` (case-insensitive)
 ///
 /// This is needed because different client implementations may send boolean values
 /// in different formats (e.g., Python might send 0/1 instead of true/false).
+///
+/// Note: Strings like "yes"/"no", "y"/"n", and empty strings are NOT supported
+/// and will return an error to ensure explicit boolean semantics in the API.
 pub fn deserialize_flexible_bool<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
 where
     D: Deserializer<'de>,
@@ -36,11 +39,11 @@ where
             Ok(Some(i > 0))
         }
         Some(FlexibleBool::String(s)) => {
-            // Parse string representation
+            // Parse string representation - only accept explicit boolean strings
             let s_lower = s.trim().to_lowercase();
             match s_lower.as_str() {
-                "true" | "1" | "yes" | "y" => Ok(Some(true)),
-                "false" | "0" | "no" | "n" | "" => Ok(Some(false)),
+                "true" | "1" => Ok(Some(true)),
+                "false" | "0" => Ok(Some(false)),
                 _ => Err(de::Error::custom(format!("invalid boolean string: {}", s))),
             }
         }
@@ -152,27 +155,6 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_string_yes() {
-        let json = json!({"value": "yes"});
-        let result: TestStruct = serde_json::from_value(json).unwrap();
-        assert_eq!(result.value, Some(true));
-    }
-
-    #[test]
-    fn test_deserialize_string_no() {
-        let json = json!({"value": "no"});
-        let result: TestStruct = serde_json::from_value(json).unwrap();
-        assert_eq!(result.value, Some(false));
-    }
-
-    #[test]
-    fn test_deserialize_string_empty() {
-        let json = json!({"value": ""});
-        let result: TestStruct = serde_json::from_value(json).unwrap();
-        assert_eq!(result.value, Some(false));
-    }
-
-    #[test]
     fn test_deserialize_string_whitespace() {
         let json = json!({"value": "  true  "});
         let result: TestStruct = serde_json::from_value(json).unwrap();
@@ -203,16 +185,18 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_string_y() {
-        let json = json!({"value": "y"});
-        let result: TestStruct = serde_json::from_value(json).unwrap();
-        assert_eq!(result.value, Some(true));
+    fn test_deserialize_string_yes_rejected() {
+        // "yes" should be rejected for API clarity
+        let json = json!({"value": "yes"});
+        let result: Result<TestStruct, _> = serde_json::from_value(json);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_deserialize_string_n() {
-        let json = json!({"value": "n"});
-        let result: TestStruct = serde_json::from_value(json).unwrap();
-        assert_eq!(result.value, Some(false));
+    fn test_deserialize_string_empty_rejected() {
+        // Empty string should be rejected for explicit validation
+        let json = json!({"value": ""});
+        let result: Result<TestStruct, _> = serde_json::from_value(json);
+        assert!(result.is_err());
     }
 }
