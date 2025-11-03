@@ -209,6 +209,7 @@ When the Rust rewrite is completed, the project structure will include:
 > [!NOTE]  
 > The `plugin` folder contains the yt-dlp plugin, implemented in Python. It cannot be run independently and should be treated as read-only, as we will not modify it under any circumstances.
 > The `server` folder contains the TypeScript server implementation, it should be treated as read-only, as we will not modify it under any circumstances.
+> Execute `./scripts/install_plugin_dev.sh` to set up the yt-dlp plugin.
 
 ---
 

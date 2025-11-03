@@ -72,6 +72,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-tools-
 
+      - name: Install yt-dlp
+        run: |
+          mkdir -p ~/.local/bin
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
+          chmod a+rx ~/.local/bin/yt-dlp
+          ./scripts/install_plugin_dev.sh
+
       - name: Verify installation and show versions
         run: |
           echo "=== System Information ==="
@@ -90,5 +97,8 @@ jobs:
           echo "=== Cargo Extensions ==="
           cargo llvm-cov --version
           cargo nextest --version
+          echo ""
+          echo "=== yt-dlp ==="
+          yt-dlp --version
           echo ""
           echo "=== Environment Setup Complete ==="
