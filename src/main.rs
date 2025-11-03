@@ -75,12 +75,12 @@ enum Commands {
     /// Start HTTP server mode
     Server {
         /// Port to listen on
-        #[arg(short, long, default_value = "4416")]
-        port: u16,
+        #[arg(short, long)]
+        port: Option<u16>,
 
         /// Host to bind to
-        #[arg(long, default_value = "::")]
-        host: String,
+        #[arg(long)]
+        host: Option<String>,
 
         /// Enable verbose logging
         #[arg(short, long)]
@@ -142,8 +142,8 @@ mod tests {
 
         match cli.command {
             Some(Commands::Server { port, host, .. }) => {
-                assert_eq!(port, 8080);
-                assert_eq!(host, "0.0.0.0");
+                assert_eq!(port, Some(8080));
+                assert_eq!(host, Some("0.0.0.0".to_string()));
             }
             _ => panic!("Expected server subcommand"),
         }
@@ -178,8 +178,8 @@ mod tests {
                 host,
                 verbose,
             }) => {
-                assert_eq!(port, 4416);
-                assert_eq!(host, "::");
+                assert_eq!(port, None);
+                assert_eq!(host, None);
                 assert!(!verbose);
             }
             _ => panic!("Expected server subcommand"),

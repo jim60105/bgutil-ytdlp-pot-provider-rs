@@ -8,8 +8,8 @@ use anyhow::Result;
 /// Arguments for server mode
 #[derive(Debug)]
 pub struct ServerArgs {
-    pub port: u16,
-    pub host: String,
+    pub port: Option<u16>,
+    pub host: Option<String>,
     pub verbose: bool,
 }
 
@@ -26,25 +26,32 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
             .init();
     }
 
-    // Load configuration
-    let settings = match Settings::from_env() {
-        Ok(mut settings) => {
-            // Override with CLI arguments
-            settings.server.host = args.host.clone();
-            settings.server.port = args.port;
-            settings
-        }
+    // Load configuration with proper precedence:
+    // 1. Command line arguments (highest priority)
+    // 2. Environment variables
+    // 3. Configuration file (from BGUTIL_CONFIG or default location)
+    // 4. Default values (lowest priority)
+    use crate::config::ConfigLoader;
+
+    let config_loader = ConfigLoader::new();
+    let config_path = ConfigLoader::get_config_path();
+
+    let mut settings = match config_loader.load(config_path.as_deref()) {
+        Ok(settings) => settings,
         Err(e) => {
-            tracing::warn!(
-                "Failed to load settings from environment: {}. Using defaults.",
-                e
-            );
-            let mut settings = Settings::default();
-            settings.server.host = args.host.clone();
-            settings.server.port = args.port;
-            settings
+            tracing::warn!("Failed to load configuration: {}. Using defaults.", e);
+            Settings::default()
         }
     };
+
+    // Override with CLI arguments if provided (highest priority)
+    if let Some(host) = args.host {
+        settings.server.host = host;
+    }
+    if let Some(port) = args.port {
+        settings.server.port = port;
+    }
+    settings.logging.verbose = args.verbose;
 
     tracing::info!("Starting POT server v{}", version::get_version());
 
@@ -52,7 +59,7 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
     let app = app::create_app(settings.clone());
 
     // Parse address and attempt IPv6/IPv4 fallback like TypeScript implementation
-    let addr = parse_and_bind_address(&args.host, args.port).await?;
+    let addr = parse_and_bind_address(&settings.server.host, settings.server.port).await?;
 
     tracing::info!(
         "POT server v{} listening on {}",
@@ -123,6 +130,7 @@ pub async fn parse_and_bind_address(host: &str, port: u16) -> Result<std::net::S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_parse_and_bind_ipv4_address() {
@@ -201,5 +209,140 @@ mod tests {
         // localhost should fail since we only accept IP addresses or :: and 0.0.0.0
         let result = parse_and_bind_address("localhost", 8080).await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_server_args_with_optional_values() {
+        // Test ServerArgs with all None values
+        let args = ServerArgs {
+            port: None,
+            host: None,
+            verbose: false,
+        };
+        assert!(args.port.is_none());
+        assert!(args.host.is_none());
+        assert!(!args.verbose);
+
+        // Test ServerArgs with Some values
+        let args = ServerArgs {
+            port: Some(8080),
+            host: Some("127.0.0.1".to_string()),
+            verbose: true,
+        };
+        assert_eq!(args.port, Some(8080));
+        assert_eq!(args.host, Some("127.0.0.1".to_string()));
+        assert!(args.verbose);
+    }
+
+    #[tokio::test]
+    async fn test_run_server_mode_with_invalid_config() {
+        use std::sync::Mutex;
+        use tempfile::NamedTempFile;
+
+        // Static mutex to ensure this test doesn't interfere with others
+        static TEST_MUTEX: Mutex<()> = Mutex::new(());
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Create an invalid config file
+        let mut temp_file = NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut temp_file, b"invalid toml content [[[").unwrap();
+        temp_file.flush().unwrap();
+
+        // Save and set BGUTIL_CONFIG
+        let original_config = std::env::var("BGUTIL_CONFIG").ok();
+        unsafe {
+            std::env::set_var("BGUTIL_CONFIG", temp_file.path().to_str().unwrap());
+        }
+
+        // Create ServerArgs for testing
+        let args = ServerArgs {
+            port: Some(0), // Use port 0 to get any available port
+            host: Some("127.0.0.1".to_string()),
+            verbose: false,
+        };
+
+        // Spawn the server in a separate task and cancel it immediately
+        let handle = tokio::spawn(async move { run_server_mode(args).await });
+
+        // Give it a moment to initialize, then abort
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        handle.abort();
+
+        // Restore environment
+        unsafe {
+            std::env::remove_var("BGUTIL_CONFIG");
+            if let Some(config) = original_config {
+                std::env::set_var("BGUTIL_CONFIG", config);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_run_server_mode_with_valid_config() {
+        use std::io::Write;
+        use std::sync::Mutex;
+        use tempfile::NamedTempFile;
+
+        // Static mutex to ensure this test doesn't interfere with others
+        static TEST_MUTEX: Mutex<()> = Mutex::new(());
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Create a valid config file
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            r#"
+[server]
+host = "127.0.0.1"
+port = 4416
+        "#
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        // Save and set BGUTIL_CONFIG
+        let original_config = std::env::var("BGUTIL_CONFIG").ok();
+        unsafe {
+            std::env::set_var("BGUTIL_CONFIG", temp_file.path().to_str().unwrap());
+        }
+
+        // Create ServerArgs that will override config
+        let args = ServerArgs {
+            port: Some(0), // Use port 0 to get any available port
+            host: Some("127.0.0.1".to_string()),
+            verbose: false,
+        };
+
+        // Spawn the server in a separate task and cancel it immediately
+        let handle = tokio::spawn(async move { run_server_mode(args).await });
+
+        // Give it a moment to initialize, then abort
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        handle.abort();
+
+        // Restore environment
+        unsafe {
+            std::env::remove_var("BGUTIL_CONFIG");
+            if let Some(config) = original_config {
+                std::env::set_var("BGUTIL_CONFIG", config);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_run_server_mode_verbose_logging() {
+        // Test that verbose flag is properly handled
+        let args = ServerArgs {
+            port: Some(0),
+            host: Some("127.0.0.1".to_string()),
+            verbose: true,
+        };
+
+        // Spawn the server in a separate task and cancel it immediately
+        let handle = tokio::spawn(async move { run_server_mode(args).await });
+
+        // Give it a moment to initialize, then abort
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        handle.abort();
     }
 }
