@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, de};
 
 /// Deserialize a flexible boolean value that can be:
 /// - JSON boolean: `true`, `false`
-/// - Integer: `0` (false), any non-zero integer (true, negative integers treated as false for safety)
+/// - Integer: `0` or negative (false), positive (true)
 /// - String: `"0"`, `"1"`, `"false"`, `"true"` (case-insensitive)
 ///
 /// This is needed because different client implementations may send boolean values
@@ -34,8 +34,7 @@ where
         None => Ok(None),
         Some(FlexibleBool::Bool(b)) => Ok(Some(b)),
         Some(FlexibleBool::Int(i)) => {
-            // 0 is false, any non-zero positive integer is true
-            // Negative integers are treated as false for safety
+            // 0 and negative integers are false, positive integers are true
             Ok(Some(i > 0))
         }
         Some(FlexibleBool::String(s)) => {
