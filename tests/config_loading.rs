@@ -163,8 +163,6 @@ fn test_default_config_path() {
 #[cfg(unix)]
 #[test]
 fn test_bgutil_config_with_server_cli() {
-    use assert_cmd::Command;
-
     let _lock = ENV_TEST_MUTEX.lock().unwrap();
 
     // Create a config file with specific host
@@ -181,7 +179,7 @@ port = 4416
     temp_file.flush().unwrap();
 
     // Test server command with BGUTIL_CONFIG
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("bgutil-pot");
     cmd.env("BGUTIL_CONFIG", temp_file.path().to_str().unwrap());
     cmd.args(&["server", "-v"]); // verbose mode to see the address in logs
     cmd.timeout(std::time::Duration::from_secs(2));
@@ -206,8 +204,6 @@ port = 4416
 
 #[test]
 fn test_cli_args_override_everything() {
-    use assert_cmd::Command;
-
     let _lock = ENV_TEST_MUTEX.lock().unwrap();
 
     // Create a config file
@@ -228,7 +224,7 @@ port = 9999
     let original_host = std::env::var("POT_SERVER_HOST").ok();
 
     // Test with config file and env var, but CLI should win
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("bgutil-pot");
     cmd.env("BGUTIL_CONFIG", temp_file.path().to_str().unwrap());
     unsafe {
         std::env::set_var("POT_SERVER_HOST", "0.0.0.0");

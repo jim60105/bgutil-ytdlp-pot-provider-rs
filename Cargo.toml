@@ -46,12 +46,13 @@ missing_docs = "allow" # Allow missing docs at rust level
 [dependencies]
 # Dependencies
 # HTTP server
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 axum = "0.8.4"
 tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# Serialization
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.135"
 
 # CLI framework
 clap = { version = "4.5.46", features = ["derive", "cargo"] }
@@ -60,55 +61,55 @@ clap = { version = "4.5.46", features = ["derive", "cargo"] }
 axum-macros = "0.5.0"
 
 # Async HTTP client
-reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.12.12", features = ["json", "stream", "rustls-tls"] }
 
 # Logging
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 # Error handling
-anyhow = "1.0"
+anyhow = "1.0.95"
 thiserror = "2.0.16"
 
 # Date/time
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 
 # Cross-platform directories
-dirs = "6.0"
+dirs = "6.0.0"
 
 # Configuration file parsing
 toml = "0.9.5"
 
 # URL parsing and validation
-url = "2.5"
+url = "2.5.4"
 
 # BotGuard integration - using dedicated Rust crate
 rustypipe-botguard = "0.1.2"
 
 # Time handling (used by rustypipe-botguard)
-time = { version = "0.3", features = ["formatting", "parsing"] }
+time = { version = "0.3.43", features = ["formatting", "parsing"] }
 
 # Base64 encoding/decoding
 base64 = "0.22.1"
 
 # Async trait support for testing
-async-trait = "0.1"
+async-trait = "0.1.89"
 
 [dev-dependencies]
 # Testing frameworks and utilities
-tokio-test = "0.4"
-tower-test = "0.4"
-tempfile = "3.0"
-assert_cmd = "2.0"
-predicates = "3.0"
+tokio-test = "0.4.4"
+tower-test = "0.4.0"
+tempfile = "3.16.0"
+assert_cmd = "2.0.16"
+predicates = "3.1.2"
 
 # HTTP mocking for testing
-mockito = "1.7"
+mockito = "1.7.0"
 
 # Professional testing tools for enhanced TDD workflow
-wiremock = "0.6"           # HTTP service mocking
-serde_path_to_error = "0.1" # Enhanced JSON error diagnostics
-pretty_assertions = "1.4"   # Improved test output formatting
+wiremock = "0.6.4"           # HTTP service mocking
+serde_path_to_error = "0.1.17" # Enhanced JSON error diagnostics
+pretty_assertions = "1.4.1"   # Improved test output formatting
 rstest = "0.26.1"            # Parameterized testing framework
 fake = "4.4.0"               # Test data generation
 

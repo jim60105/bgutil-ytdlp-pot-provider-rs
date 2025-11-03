@@ -2,13 +2,13 @@
 //!
 //! Tests the CLI behavior and ensures compatibility with TypeScript version.
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use tempfile::TempDir;
 
 #[test]
 fn test_version_flag() {
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.arg("--version");
 
     cmd.assert()
@@ -18,7 +18,7 @@ fn test_version_flag() {
 
 #[test]
 fn test_help_flag() {
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.arg("--help");
 
     cmd.assert()
@@ -30,7 +30,7 @@ fn test_help_flag() {
 
 #[test]
 fn test_deprecated_visitor_data_flag() {
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.args(&["--visitor-data", "deprecated_value"]);
 
     cmd.assert()
@@ -41,7 +41,7 @@ fn test_deprecated_visitor_data_flag() {
 
 #[test]
 fn test_deprecated_data_sync_id_flag() {
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.args(&["--data-sync-id", "deprecated_value"]);
 
     cmd.assert()
@@ -52,7 +52,7 @@ fn test_deprecated_data_sync_id_flag() {
 
 #[test]
 fn test_basic_token_generation() {
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.args(&["--content-binding", "test_video_id_basic"]);
 
     // Should succeed and output JSON
@@ -63,7 +63,7 @@ fn test_basic_token_generation() {
 
 #[test]
 fn test_json_output_format() {
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.args(&["--content-binding", "test_video_id_json"]);
 
     let output = cmd.output().unwrap();
@@ -86,7 +86,7 @@ fn test_cache_directory_creation() {
     let temp_dir = TempDir::new().unwrap();
     let cache_dir = temp_dir.path().join("test_cache");
 
-    let mut cmd = Command::cargo_bin("bgutil-pot").unwrap();
+    let mut cmd = cargo_bin_cmd!("bgutil-pot");
     cmd.env("XDG_CACHE_HOME", cache_dir.to_str().unwrap());
     cmd.args(&["--content-binding", "test_video_id_cache"]);
 
