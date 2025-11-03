@@ -43,15 +43,20 @@ impl SessionData {
 }
 
 /// POT token types corresponding to different contexts
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PotTokenType {
     /// Session-bound POT token using visitor_data as identifier
-    #[default]
     SessionBound,
     /// Content-bound POT token using video_id as identifier
     ContentBound,
     /// Cold-start POT token using placeholder implementation
     ColdStart,
+}
+
+impl Default for PotTokenType {
+    fn default() -> Self {
+        Self::SessionBound
+    }
 }
 
 /// Context for POT token generation

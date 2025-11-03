@@ -4,8 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::serde_helpers::deserialize_flexible_bool;
-
 /// Request for POT token generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PotRequest {
@@ -16,18 +14,15 @@ pub struct PotRequest {
     pub proxy: Option<String>,
 
     /// Whether to bypass cache and generate fresh token
-    #[serde(default, deserialize_with = "deserialize_flexible_bool")]
     pub bypass_cache: Option<bool>,
 
     /// BotGuard challenge from Innertube
     pub challenge: Option<String>,
 
     /// Whether to disable challenges from Innertube
-    #[serde(default, deserialize_with = "deserialize_flexible_bool")]
     pub disable_innertube: Option<bool>,
 
     /// Whether to disable TLS certificate verification
-    #[serde(default, deserialize_with = "deserialize_flexible_bool")]
     pub disable_tls_verification: Option<bool>,
 
     /// Innertube context object
@@ -219,86 +214,5 @@ mod tests {
         let it = InvalidationType::IntegrityToken;
         let json = serde_json::to_string(&it).unwrap();
         assert_eq!(json, "\"IT\"");
-    }
-
-    // Tests for flexible boolean deserialization
-    #[test]
-    fn test_pot_request_deserialize_with_integer_booleans() {
-        // Test that integer 0 and 1 are properly deserialized as boolean values
-        let json = r#"{
-            "content_binding": "test",
-            "bypass_cache": 0,
-            "disable_innertube": 1,
-            "disable_tls_verification": 0
-        }"#;
-
-        let request: PotRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(request.content_binding, Some("test".to_string()));
-        assert_eq!(request.bypass_cache, Some(false));
-        assert_eq!(request.disable_innertube, Some(true));
-        assert_eq!(request.disable_tls_verification, Some(false));
-    }
-
-    #[test]
-    fn test_pot_request_deserialize_with_string_booleans() {
-        // Test that string "true" and "false" are properly deserialized
-        let json = r#"{
-            "content_binding": "test",
-            "bypass_cache": "false",
-            "disable_innertube": "true",
-            "disable_tls_verification": "0"
-        }"#;
-
-        let request: PotRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(request.content_binding, Some("test".to_string()));
-        assert_eq!(request.bypass_cache, Some(false));
-        assert_eq!(request.disable_innertube, Some(true));
-        assert_eq!(request.disable_tls_verification, Some(false));
-    }
-
-    #[test]
-    fn test_pot_request_deserialize_with_mixed_boolean_types() {
-        // Test mixed boolean types in a single request
-        let json = r#"{
-            "content_binding": "test",
-            "bypass_cache": false,
-            "disable_innertube": 1,
-            "disable_tls_verification": "true"
-        }"#;
-
-        let request: PotRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(request.content_binding, Some("test".to_string()));
-        assert_eq!(request.bypass_cache, Some(false));
-        assert_eq!(request.disable_innertube, Some(true));
-        assert_eq!(request.disable_tls_verification, Some(true));
-    }
-
-    #[test]
-    fn test_pot_request_deserialize_with_null_booleans() {
-        // Test that null values are properly handled
-        let json = r#"{
-            "content_binding": "test",
-            "bypass_cache": null,
-            "disable_innertube": null
-        }"#;
-
-        let request: PotRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(request.content_binding, Some("test".to_string()));
-        assert_eq!(request.bypass_cache, None);
-        assert_eq!(request.disable_innertube, None);
-    }
-
-    #[test]
-    fn test_pot_request_deserialize_missing_boolean_fields() {
-        // Test that missing boolean fields are properly handled
-        let json = r#"{
-            "content_binding": "test"
-        }"#;
-
-        let request: PotRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(request.content_binding, Some("test".to_string()));
-        assert_eq!(request.bypass_cache, None);
-        assert_eq!(request.disable_innertube, None);
-        assert_eq!(request.disable_tls_verification, None);
     }
 }

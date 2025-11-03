@@ -82,8 +82,40 @@ pub async fn validate_deprecated_fields_middleware(
 /// Generates a new POT token based on the request parameters.
 pub async fn generate_pot(
     State(state): State<AppState>,
-    Json(request): Json<PotRequest>,
+    body: axum::body::Bytes,
 ) -> axum::response::Response {
+    // Parse JSON with detailed error logging
+    let request: PotRequest = match serde_json::from_slice(&body) {
+        Ok(req) => req,
+        Err(e) => {
+            // Log the raw body for debugging (truncate if too long)
+            let body_preview = if body.len() > 1000 {
+                format!(
+                    "{}... (truncated, total {} bytes)",
+                    String::from_utf8_lossy(&body[..1000]),
+                    body.len()
+                )
+            } else {
+                String::from_utf8_lossy(&body).to_string()
+            };
+            
+            tracing::error!(
+                "Failed to deserialize JSON request: {}\nBody preview: {}",
+                e,
+                body_preview
+            );
+            
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(ErrorResponse::with_context(
+                    format!("Invalid JSON: {}", e),
+                    "json_deserialization",
+                )),
+            )
+                .into_response();
+        }
+    };
+
     tracing::debug!("Received POT generation request: {:?}", request);
 
     // Note: Deprecated field validation is now handled by middleware
