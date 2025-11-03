@@ -8,8 +8,8 @@ use anyhow::Result;
 /// Arguments for server mode
 #[derive(Debug)]
 pub struct ServerArgs {
-    pub port: u16,
-    pub host: String,
+    pub port: Option<u16>,
+    pub host: Option<String>,
     pub verbose: bool,
 }
 
@@ -26,25 +26,32 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
             .init();
     }
 
-    // Load configuration
-    let settings = match Settings::from_env() {
-        Ok(mut settings) => {
-            // Override with CLI arguments
-            settings.server.host = args.host.clone();
-            settings.server.port = args.port;
-            settings
-        }
+    // Load configuration with proper precedence:
+    // 1. Command line arguments (highest priority)
+    // 2. Environment variables
+    // 3. Configuration file (from BGUTIL_CONFIG or default location)
+    // 4. Default values (lowest priority)
+    use crate::config::ConfigLoader;
+
+    let config_loader = ConfigLoader::new();
+    let config_path = ConfigLoader::get_config_path();
+
+    let mut settings = match config_loader.load(config_path.as_deref()) {
+        Ok(settings) => settings,
         Err(e) => {
-            tracing::warn!(
-                "Failed to load settings from environment: {}. Using defaults.",
-                e
-            );
-            let mut settings = Settings::default();
-            settings.server.host = args.host.clone();
-            settings.server.port = args.port;
-            settings
+            tracing::warn!("Failed to load configuration: {}. Using defaults.", e);
+            Settings::default()
         }
     };
+
+    // Override with CLI arguments if provided (highest priority)
+    if let Some(host) = args.host {
+        settings.server.host = host;
+    }
+    if let Some(port) = args.port {
+        settings.server.port = port;
+    }
+    settings.logging.verbose = args.verbose;
 
     tracing::info!("Starting POT server v{}", version::get_version());
 
@@ -52,7 +59,7 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
     let app = app::create_app(settings.clone());
 
     // Parse address and attempt IPv6/IPv4 fallback like TypeScript implementation
-    let addr = parse_and_bind_address(&args.host, args.port).await?;
+    let addr = parse_and_bind_address(&settings.server.host, settings.server.port).await?;
 
     tracing::info!(
         "POT server v{} listening on {}",

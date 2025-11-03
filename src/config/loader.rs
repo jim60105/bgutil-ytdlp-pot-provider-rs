@@ -22,6 +22,36 @@ impl ConfigLoader {
         }
     }
 
+    /// Get the config file path from BGUTIL_CONFIG environment variable or default location
+    ///
+    /// Priority:
+    /// 1. BGUTIL_CONFIG environment variable
+    /// 2. ~/.config/bgutil-pot-provider/config.toml (or platform equivalent)
+    pub fn get_config_path() -> Option<std::path::PathBuf> {
+        // First try BGUTIL_CONFIG environment variable
+        if let Ok(config_path) = std::env::var("BGUTIL_CONFIG") {
+            let path = std::path::PathBuf::from(config_path);
+            if path.exists() {
+                debug!("Using config file from BGUTIL_CONFIG: {:?}", path);
+                return Some(path);
+            } else {
+                warn!("BGUTIL_CONFIG points to non-existent file: {:?}", path);
+            }
+        }
+
+        // Try default config location
+        if let Some(config_dir) = dirs::config_dir() {
+            let default_path = config_dir.join("bgutil-pot-provider").join("config.toml");
+            if default_path.exists() {
+                debug!("Using default config file: {:?}", default_path);
+                return Some(default_path);
+            }
+        }
+
+        debug!("No config file found");
+        None
+    }
+
     /// Load configuration with precedence order:
     /// 1. Command line arguments (highest priority)
     /// 2. Environment variables
