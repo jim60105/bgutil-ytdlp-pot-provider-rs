@@ -4,6 +4,47 @@
 
 use serde::{Deserialize, Serialize};
 
+/// BotGuard challenge data structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Challenge {
+    /// Challenge as a string (legacy format or parsed from webpage)
+    String(String),
+    /// Challenge as structured data (from yt-dlp or Innertube API)
+    Data(ChallengeData),
+}
+
+/// Structured challenge data from BotGuard
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChallengeData {
+    /// Interpreter URL wrapper
+    #[serde(rename = "interpreterUrl")]
+    pub interpreter_url: InterpreterUrl,
+
+    /// Hash of the interpreter
+    #[serde(rename = "interpreterHash")]
+    pub interpreter_hash: String,
+
+    /// BotGuard program code
+    pub program: String,
+
+    /// Global name for the BotGuard instance
+    #[serde(rename = "globalName")]
+    pub global_name: String,
+
+    /// Client experiments state blob
+    #[serde(rename = "clientExperimentsStateBlob")]
+    pub client_experiments_state_blob: String,
+}
+
+/// Interpreter URL wrapper (Google's trusted resource URL format)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InterpreterUrl {
+    /// The actual URL wrapped in Google's trusted resource format
+    #[serde(rename = "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue")]
+    pub private_do_not_access_or_else_trusted_resource_url_wrapped_value: String,
+}
+
 /// Request for POT token generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PotRequest {
@@ -16,8 +57,8 @@ pub struct PotRequest {
     /// Whether to bypass cache and generate fresh token
     pub bypass_cache: Option<bool>,
 
-    /// BotGuard challenge from Innertube
-    pub challenge: Option<String>,
+    /// BotGuard challenge from Innertube (can be string or structured data)
+    pub challenge: Option<Challenge>,
 
     /// Whether to disable challenges from Innertube
     pub disable_innertube: Option<bool>,
@@ -117,9 +158,15 @@ impl PotRequest {
         self
     }
 
-    /// Set challenge data
+    /// Set challenge data as string
     pub fn with_challenge(mut self, challenge: impl Into<String>) -> Self {
-        self.challenge = Some(challenge.into());
+        self.challenge = Some(Challenge::String(challenge.into()));
+        self
+    }
+
+    /// Set challenge data as structured data
+    pub fn with_challenge_data(mut self, challenge: ChallengeData) -> Self {
+        self.challenge = Some(Challenge::Data(challenge));
         self
     }
 
@@ -164,7 +211,10 @@ mod tests {
         assert_eq!(request.bypass_cache, Some(true));
         assert_eq!(request.source_address, Some("192.168.1.1".to_string()));
         assert_eq!(request.disable_tls_verification, Some(true));
-        assert_eq!(request.challenge, Some("test_challenge".to_string()));
+        assert!(matches!(request.challenge, Some(Challenge::String(_))));
+        if let Some(Challenge::String(s)) = request.challenge {
+            assert_eq!(s, "test_challenge");
+        }
         assert_eq!(request.disable_innertube, Some(true));
     }
 

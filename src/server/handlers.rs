@@ -98,13 +98,13 @@ pub async fn generate_pot(
             } else {
                 String::from_utf8_lossy(&body).to_string()
             };
-            
+
             tracing::error!(
                 "Failed to deserialize JSON request: {}\nBody preview: {}",
                 e,
                 body_preview
             );
-            
+
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 Json(ErrorResponse::with_context(
@@ -244,8 +244,9 @@ mod tests {
     async fn test_generate_pot_handler() {
         let state = create_test_state();
         let request = PotRequest::new().with_content_binding("test_video");
+        let body = axum::body::Bytes::from(serde_json::to_vec(&request).unwrap());
 
-        let response = generate_pot(State(state), Json(request)).await;
+        let response = generate_pot(State(state), body).await;
         // Since we changed to IntoResponse, we can't easily test the structure
         // but at least we can verify it compiles and runs
         let _ = response.into_response();
@@ -436,8 +437,9 @@ mod tests {
     async fn test_generate_pot_with_empty_content_binding() {
         let state = create_test_state();
         let request = PotRequest::new(); // No content binding set
+        let body = axum::body::Bytes::from(serde_json::to_vec(&request).unwrap());
 
-        let response = generate_pot(State(state), Json(request)).await;
+        let response = generate_pot(State(state), body).await;
         // Since we changed to IntoResponse, we can't easily test the structure
         // but at least we can verify it compiles and runs
         let _ = response.into_response();
