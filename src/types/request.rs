@@ -265,4 +265,172 @@ mod tests {
         let json = serde_json::to_string(&it).unwrap();
         assert_eq!(json, "\"IT\"");
     }
+
+    #[test]
+    fn test_challenge_string_variant() {
+        let challenge = Challenge::String("test_string".to_string());
+
+        // Test serialization
+        let json = serde_json::to_string(&challenge).unwrap();
+        assert_eq!(json, "\"test_string\"");
+
+        // Test deserialization
+        let deserialized: Challenge = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, Challenge::String(_)));
+        if let Challenge::String(s) = deserialized {
+            assert_eq!(s, "test_string");
+        }
+    }
+
+    #[test]
+    fn test_challenge_data_variant() {
+        let challenge_data = ChallengeData {
+            interpreter_url: InterpreterUrl {
+                private_do_not_access_or_else_trusted_resource_url_wrapped_value:
+                    "//www.google.com/js/test.js".to_string(),
+            },
+            interpreter_hash: "test_hash".to_string(),
+            program: "test_program".to_string(),
+            global_name: "test_global".to_string(),
+            client_experiments_state_blob: "test_blob".to_string(),
+        };
+
+        let challenge = Challenge::Data(challenge_data);
+
+        // Test serialization
+        let json = serde_json::to_string(&challenge).unwrap();
+        assert!(json.contains("interpreterUrl"));
+        assert!(json.contains("test_hash"));
+        assert!(json.contains("test_program"));
+
+        // Test deserialization
+        let deserialized: Challenge = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, Challenge::Data(_)));
+        if let Challenge::Data(data) = deserialized {
+            assert_eq!(data.interpreter_hash, "test_hash");
+            assert_eq!(data.program, "test_program");
+            assert_eq!(data.global_name, "test_global");
+        }
+    }
+
+    #[test]
+    fn test_challenge_data_deserialization_from_ytdlp_format() {
+        // Test with actual yt-dlp format
+        let json = r#"{
+            "interpreterUrl": {
+                "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue": "//www.google.com/js/th/test.js"
+            },
+            "interpreterHash": "test_hash_123",
+            "program": "program_data",
+            "globalName": "global_name",
+            "clientExperimentsStateBlob": "blob_data"
+        }"#;
+
+        let challenge: Challenge = serde_json::from_str(json).unwrap();
+        assert!(matches!(challenge, Challenge::Data(_)));
+
+        if let Challenge::Data(data) = challenge {
+            assert_eq!(
+                data.interpreter_url
+                    .private_do_not_access_or_else_trusted_resource_url_wrapped_value,
+                "//www.google.com/js/th/test.js"
+            );
+            assert_eq!(data.interpreter_hash, "test_hash_123");
+            assert_eq!(data.program, "program_data");
+            assert_eq!(data.global_name, "global_name");
+            assert_eq!(data.client_experiments_state_blob, "blob_data");
+        }
+    }
+
+    #[test]
+    fn test_pot_request_with_challenge_data() {
+        let challenge_data = ChallengeData {
+            interpreter_url: InterpreterUrl {
+                private_do_not_access_or_else_trusted_resource_url_wrapped_value:
+                    "//www.google.com/js/test.js".to_string(),
+            },
+            interpreter_hash: "hash123".to_string(),
+            program: "program123".to_string(),
+            global_name: "global123".to_string(),
+            client_experiments_state_blob: "blob123".to_string(),
+        };
+
+        let request = PotRequest::new()
+            .with_challenge_data(challenge_data)
+            .with_content_binding("test_video");
+
+        assert!(matches!(request.challenge, Some(Challenge::Data(_))));
+        assert_eq!(request.content_binding, Some("test_video".to_string()));
+
+        // Test serialization round-trip
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: PotRequest = serde_json::from_str(&json).unwrap();
+
+        assert!(matches!(deserialized.challenge, Some(Challenge::Data(_))));
+        if let Some(Challenge::Data(data)) = deserialized.challenge {
+            assert_eq!(data.interpreter_hash, "hash123");
+        }
+    }
+
+    #[test]
+    fn test_pot_request_deserialize_with_challenge_object() {
+        // Simulate yt-dlp request with challenge object
+        let json = r#"{
+            "content_binding": "test_id",
+            "bypass_cache": false,
+            "challenge": {
+                "interpreterUrl": {
+                    "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue": "//www.google.com/js/test.js"
+                },
+                "interpreterHash": "test_hash",
+                "program": "test_program",
+                "globalName": "test_global",
+                "clientExperimentsStateBlob": "test_blob"
+            },
+            "disable_innertube": false,
+            "disable_tls_verification": false
+        }"#;
+
+        let request: PotRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(request.content_binding, Some("test_id".to_string()));
+        assert!(matches!(request.challenge, Some(Challenge::Data(_))));
+        assert_eq!(request.bypass_cache, Some(false));
+    }
+
+    #[test]
+    fn test_pot_request_deserialize_with_challenge_string() {
+        // Test backwards compatibility with string challenge
+        let json = r#"{
+            "content_binding": "test_id",
+            "challenge": "simple_string_challenge"
+        }"#;
+
+        let request: PotRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(request.content_binding, Some("test_id".to_string()));
+        assert!(matches!(request.challenge, Some(Challenge::String(_))));
+
+        if let Some(Challenge::String(s)) = request.challenge {
+            assert_eq!(s, "simple_string_challenge");
+        }
+    }
+
+    #[test]
+    fn test_interpreter_url_serialization() {
+        let url = InterpreterUrl {
+            private_do_not_access_or_else_trusted_resource_url_wrapped_value:
+                "//www.google.com/js/test.js".to_string(),
+        };
+
+        let json = serde_json::to_string(&url).unwrap();
+        assert!(json.contains("privateDoNotAccessOrElseTrustedResourceUrlWrappedValue"));
+        assert!(json.contains("//www.google.com/js/test.js"));
+
+        let deserialized: InterpreterUrl = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            deserialized.private_do_not_access_or_else_trusted_resource_url_wrapped_value,
+            "//www.google.com/js/test.js"
+        );
+    }
 }
