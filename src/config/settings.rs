@@ -77,6 +77,10 @@ fn default_pot_generation_timeout() -> u64 {
     30 // 30 seconds
 }
 
+fn default_ttl_hours() -> u64 {
+    6
+}
+
 // Duration serialization module
 mod duration_secs {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -121,12 +125,22 @@ pub struct Settings {
     pub cache: CacheSettings,
 }
 
+fn default_host() -> String {
+    "::".to_string()
+}
+
+fn default_port() -> u16 {
+    4416
+}
+
 /// HTTP server configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerSettings {
     /// Server host address
+    #[serde(default = "default_host")]
     pub host: String,
     /// Server port
+    #[serde(default = "default_port")]
     pub port: u16,
     /// Request timeout duration
     #[serde(with = "duration_secs", default = "default_timeout")]
@@ -143,6 +157,7 @@ pub struct ServerSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenSettings {
     /// Token TTL in hours (corresponds to TypeScript TOKEN_TTL env var)
+    #[serde(default = "default_ttl_hours")]
     pub ttl_hours: u64,
     /// Enable token caching
     #[serde(default = "default_true")]
