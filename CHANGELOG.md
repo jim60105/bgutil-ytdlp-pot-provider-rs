@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-11-05
+
+### Fixed
+
+- Fixed: Configuration parser now properly handles partial TOML configurations by making all config fields optional with `#[serde(default)]` attributes (#80, #79)
+- Fixed: "missing field" errors when specifying only some fields in config file (e.g., setting `host` without `port`)
+
+### Added
+
+- Added: 44 comprehensive tests in `tests/config_optional_fields.rs` covering individual field omission scenarios, empty sections, and partial configurations
+- Added: Documentation file `docs/config-optional-fields.md` with default values reference table and minimal configuration examples
+
 ## [0.5.2] - 2025-11-04
 
 ### Fixed
@@ -180,7 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.4.0...v0.5.0
