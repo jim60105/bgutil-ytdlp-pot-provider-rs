@@ -93,7 +93,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       id-token: write
-      contents: read
+      contents: write
       attestations: write
     strategy:
       matrix:
