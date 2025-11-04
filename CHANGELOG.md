@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-11-04
+
+### Changed
+
+- Changed: Updated CI status badge in README to reference build-test-coverage workflow
+- Changed: Updated bug report URL in Python plugin to point to jim60105 GitHub repository
+
 ## [0.5.0] - 2025-11-04
 
 ### Added
@@ -167,7 +174,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.2.0...v0.3.0
