@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-04
+
+### Added
+
+- Added: BGUTIL_CONFIG environment variable support for specifying custom configuration file paths (#66)
+- Added: Proper configuration precedence order: CLI arguments > environment variables > configuration file > default values
+- Added: Build-provenance attestations for binary assets to enhance supply chain security verification
+- Added: Support for structured Challenge data format from yt-dlp with dedicated ChallengeData type (#65)
+- Added: InterpreterUrl wrapper type for Google's trusted resource URL format
+- Added: Enhanced JSON error logging with detailed serde diagnostics and request body preview for debugging
+
+### Changed
+
+- Changed: Upgraded all dependencies to latest versions (tokio 1.43.0, serde 1.0.216, reqwest 0.12.12, and more)
+- Changed: Challenge field in PotRequest now accepts both String (legacy) and structured ChallengeData formats using untagged enum
+- Changed: Server CLI arguments (host/port) changed to Option type to properly detect explicit user values
+- Changed: ConfigLoader now reads BGUTIL_CONFIG environment variable with fallback to default config path
+
+### Fixed
+
+- Fixed: HTTP 422 errors when yt-dlp sends structured Challenge data as JSON objects instead of strings (#65, #63)
+- Fixed: Configuration file server.host setting being ignored when using BGUTIL_CONFIG environment variable (#64)
+- Fixed: JSON deserialization errors now provide detailed error messages with request body context
+- Fixed: Deprecated assert_cmd::Command::cargo_bin usage in tests
+
+### Security
+
+- Security: Implemented cryptographic build-provenance attestations for released binaries using GitHub Actions
+- Security: Enhanced supply chain security allowing consumers to verify integrity and origin of binaries
+
 ## [0.4.0] - 2025-09-02
 
 ### Added
@@ -137,7 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.1.1...v0.2.0

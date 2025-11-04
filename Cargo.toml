@@ -1,6 +1,6 @@
 [package]
 name = "bgutil-ytdlp-pot-provider"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 authors = ["Jim Chen <Jim@ChenJ.im>", "Brian Le <brainicism@gmail.com>"]
 description = "BgUtils POT Provider - Rust implementation for generating YouTube POT tokens"
