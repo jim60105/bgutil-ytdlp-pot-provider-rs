@@ -6,7 +6,7 @@ A high-performance YouTube POT (Proof-of-Origin Token) provider implemented in R
 > Providing a POT token does not guarantee bypassing 403 errors or bot checks, but it _may_ help your traffic seem more legitimate.
 
 [![GitHub Release](https://img.shields.io/github/v/release/jim60105/bgutil-ytdlp-pot-provider-rs?style=for-the-badge)](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/jim60105/bgutil-ytdlp-pot-provider-rs/build-test-audit-coverage.yml?branch=master&label=Tests&style=for-the-badge)](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/actions/workflows/build-test-audit-coverage.yml)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/jim60105/bgutil-ytdlp-pot-provider-rs/build-test-coverage.yml?branch=master&label=Tests&style=for-the-badge)](https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/actions/workflows/build-test-coverage.yml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/jim60105/bgutil-ytdlp-pot-provider-rs?style=for-the-badge)](https://codecov.io/gh/jim60105/bgutil-ytdlp-pot-provider-rs)
 [![Crates.io](https://img.shields.io/crates/v/bgutil-ytdlp-pot-provider?style=for-the-badge)](https://crates.io/crates/bgutil-ytdlp-pot-provider)
 
