@@ -19,7 +19,7 @@ from yt_dlp.utils.traversal import traverse_obj
 class BgUtilPTPBase(PoTokenProvider, abc.ABC):
     PROVIDER_VERSION = __version__
     BUG_REPORT_LOCATION = (
-        'https://github.com/Brainicism/bgutil-ytdlp-pot-provider/issues'
+        'https://github.com/jim60105/bgutil-ytdlp-pot-provider/issues'
     )
     _SUPPORTED_EXTERNAL_REQUEST_FEATURES = (
         ExternalRequestFeature.PROXY_SCHEME_HTTP,
