@@ -222,13 +222,13 @@ curl http://127.0.0.1:4416/minter_cache
 
 ## CLI Interface
 
-### bgutil-pot-server
+### bgutil-pot server
 
 HTTP server mode for always-running POT provider service.
 
 **Usage:**
 ```bash
-bgutil-pot-server [OPTIONS]
+bgutil-pot server [OPTIONS]
 ```
 
 **Options:**
@@ -242,25 +242,25 @@ bgutil-pot-server [OPTIONS]
 **Examples:**
 ```bash
 # Start with default settings (IPv6 with IPv4 fallback)
-bgutil-pot-server
+bgutil-pot server
 
 # Custom host and port
-bgutil-pot-server --host 127.0.0.1 --port 8080
+bgutil-pot server --host 127.0.0.1 --port 8080
 
 # With verbose logging
-bgutil-pot-server --verbose
+bgutil-pot server --verbose
 
 # Using configuration file
-bgutil-pot-server --config /path/to/config.toml
+bgutil-pot server --config /path/to/config.toml
 ```
 
-### bgutil-pot-generate
+### bgutil-pot (generate mode)
 
 Script mode for single POT token generation.
 
 **Usage:**
 ```bash
-bgutil-pot-generate [OPTIONS]
+bgutil-pot [OPTIONS]
 ```
 
 **Options:**
@@ -294,23 +294,23 @@ bgutil-pot-generate [OPTIONS]
 **Examples:**
 ```bash
 # Basic token generation
-bgutil-pot-generate --content-binding "L3KvsX8hJss"
+bgutil-pot --content-binding "L3KvsX8hJss"
 
 # With proxy
-bgutil-pot-generate --content-binding "L3KvsX8hJss" --proxy "http://proxy.example.com:8080"
+bgutil-pot --content-binding "L3KvsX8hJss" --proxy "http://proxy.example.com:8080"
 
 # Bypass cache for fresh token
-bgutil-pot-generate --content-binding "L3KvsX8hJss" --bypass-cache
+bgutil-pot --content-binding "L3KvsX8hJss" --bypass-cache
 
 # With source address
-bgutil-pot-generate --content-binding "L3KvsX8hJss" --source-address "192.168.1.100"
+bgutil-pot --content-binding "L3KvsX8hJss" --source-address "192.168.1.100"
 
 # Verbose logging
-bgutil-pot-generate --content-binding "L3KvsX8hJss" --verbose
+bgutil-pot --content-binding "L3KvsX8hJss" --verbose
 
 # Using deprecated parameters (will show error and exit)
-bgutil-pot-generate --visitor-data "CgtVa2F6cWl6blE4QTi5"
-bgutil-pot-generate --data-sync-id "abc123"
+bgutil-pot --visitor-data "CgtVa2F6cWl6blE4QTi5"
+bgutil-pot --data-sync-id "abc123"
 ```
 
 **Exit Codes:**
@@ -432,7 +432,7 @@ When using script mode:
 yt-dlp "https://www.youtube.com/watch?v=VIDEO_ID"
 
 # Custom script path
-yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot-generate" "VIDEO_URL"
+yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot" "VIDEO_URL"
 ```
 
 ### Extractor Arguments
@@ -442,7 +442,7 @@ yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot
 - `disable_innertube`: Disable Innertube API usage
 
 **Script Provider (`youtubepot-bgutilscript`):**
-- `script_path`: Path to bgutil-pot-generate binary
+- `script_path`: Path to bgutil-pot binary
 
 **Multiple Arguments:**
 Separate multiple arguments with semicolons:

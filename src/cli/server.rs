@@ -10,6 +10,7 @@ use anyhow::Result;
 pub struct ServerArgs {
     pub port: Option<u16>,
     pub host: Option<String>,
+    pub config: Option<String>,
     pub verbose: bool,
 }
 
@@ -29,12 +30,18 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
     // Load configuration with proper precedence:
     // 1. Command line arguments (highest priority)
     // 2. Environment variables
-    // 3. Configuration file (from BGUTIL_CONFIG or default location)
+    // 3. Configuration file (from --config, BGUTIL_CONFIG or default location)
     // 4. Default values (lowest priority)
     use crate::config::ConfigLoader;
 
     let config_loader = ConfigLoader::new();
-    let config_path = ConfigLoader::get_config_path();
+
+    // Determine config path: CLI arg > environment variable > default location
+    let config_path = if let Some(config) = &args.config {
+        Some(std::path::PathBuf::from(config))
+    } else {
+        ConfigLoader::get_config_path()
+    };
 
     let mut settings = match config_loader.load(config_path.as_deref()) {
         Ok(settings) => settings,
@@ -217,20 +224,24 @@ mod tests {
         let args = ServerArgs {
             port: None,
             host: None,
+            config: None,
             verbose: false,
         };
         assert!(args.port.is_none());
         assert!(args.host.is_none());
+        assert!(args.config.is_none());
         assert!(!args.verbose);
 
         // Test ServerArgs with Some values
         let args = ServerArgs {
             port: Some(8080),
             host: Some("127.0.0.1".to_string()),
+            config: Some("/path/to/config.toml".to_string()),
             verbose: true,
         };
         assert_eq!(args.port, Some(8080));
         assert_eq!(args.host, Some("127.0.0.1".to_string()));
+        assert_eq!(args.config, Some("/path/to/config.toml".to_string()));
         assert!(args.verbose);
     }
 
@@ -258,6 +269,7 @@ mod tests {
         let args = ServerArgs {
             port: Some(0), // Use port 0 to get any available port
             host: Some("127.0.0.1".to_string()),
+            config: None, // Don't override with CLI arg
             verbose: false,
         };
 
@@ -310,6 +322,7 @@ port = 4416
         let args = ServerArgs {
             port: Some(0), // Use port 0 to get any available port
             host: Some("127.0.0.1".to_string()),
+            config: None, // Don't override with CLI arg
             verbose: false,
         };
 
@@ -335,7 +348,45 @@ port = 4416
         let args = ServerArgs {
             port: Some(0),
             host: Some("127.0.0.1".to_string()),
+            config: None,
             verbose: true,
+        };
+
+        // Spawn the server in a separate task and cancel it immediately
+        let handle = tokio::spawn(async move { run_server_mode(args).await });
+
+        // Give it a moment to initialize, then abort
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn test_run_server_mode_with_cli_config_path() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Create a valid config file
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            r#"
+[server]
+host = "127.0.0.1"
+port = 9999
+
+[token]
+ttl_hours = 24
+        "#
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        // Create ServerArgs with config from CLI arg
+        let args = ServerArgs {
+            port: Some(0), // Use port 0 to get any available port (override config)
+            host: Some("127.0.0.1".to_string()),
+            config: Some(temp_file.path().to_str().unwrap().to_string()),
+            verbose: false,
         };
 
         // Spawn the server in a separate task and cancel it immediately
