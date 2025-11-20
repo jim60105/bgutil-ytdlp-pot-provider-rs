@@ -82,6 +82,10 @@ enum Commands {
         #[arg(long)]
         host: Option<String>,
 
+        /// Configuration file path
+        #[arg(long)]
+        config: Option<String>,
+
         /// Enable verbose logging
         #[arg(short, long)]
         verbose: bool,
@@ -96,12 +100,14 @@ async fn main() -> anyhow::Result<()> {
         Some(Commands::Server {
             port,
             host,
+            config,
             verbose,
         }) => {
             // Server mode logic
             let args = ServerArgs {
                 port,
                 host,
+                config,
                 verbose,
             };
             run_server_mode(args).await
@@ -141,9 +147,12 @@ mod tests {
         ]);
 
         match cli.command {
-            Some(Commands::Server { port, host, .. }) => {
+            Some(Commands::Server {
+                port, host, config, ..
+            }) => {
                 assert_eq!(port, Some(8080));
                 assert_eq!(host, Some("0.0.0.0".to_string()));
+                assert_eq!(config, None);
             }
             _ => panic!("Expected server subcommand"),
         }
@@ -176,11 +185,25 @@ mod tests {
             Some(Commands::Server {
                 port,
                 host,
+                config,
                 verbose,
             }) => {
                 assert_eq!(port, None);
                 assert_eq!(host, None);
+                assert_eq!(config, None);
                 assert!(!verbose);
+            }
+            _ => panic!("Expected server subcommand"),
+        }
+    }
+
+    #[test]
+    fn test_server_config_option() {
+        let cli = Cli::parse_from(&["bgutil-pot", "server", "--config", "/path/to/config.toml"]);
+
+        match cli.command {
+            Some(Commands::Server { config, .. }) => {
+                assert_eq!(config, Some("/path/to/config.toml".to_string()));
             }
             _ => panic!("Expected server subcommand"),
         }
