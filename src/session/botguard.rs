@@ -113,13 +113,16 @@ impl BotGuardClient {
                 // Process commands
                 while let Some(cmd) = rx.recv().await {
                     match cmd {
-                        BotGuardCommand::GenerateToken { identifier, response } => {
-                            let result = botguard
-                                .mint_token(&identifier)
-                                .await
-                                .map_err(|e| {
-                                    crate::Error::token_generation(format!("Failed to mint token: {}", e))
-                                });
+                        BotGuardCommand::GenerateToken {
+                            identifier,
+                            response,
+                        } => {
+                            let result = botguard.mint_token(&identifier).await.map_err(|e| {
+                                crate::Error::token_generation(format!(
+                                    "Failed to mint token: {}",
+                                    e
+                                ))
+                            });
                             let _ = response.send(result);
                         }
                         BotGuardCommand::GetExpiryInfo { response } => {
@@ -182,7 +185,10 @@ impl BotGuardClient {
 
         // Wait for response
         response_rx.await.map_err(|_| {
-            crate::Error::botguard("response_error", "Failed to receive response from BotGuard worker")
+            crate::Error::botguard(
+                "response_error",
+                "Failed to receive response from BotGuard worker",
+            )
         })?
     }
 
