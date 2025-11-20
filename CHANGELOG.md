@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.4] - 2025-11-20
+
+### Fixed
+
+- Fixed: Critical memory leak in BotGuard causing ~25MB growth per request by implementing persistent worker thread pattern (#82, #81)
+- Fixed: V8 isolate leaks reduced from 13 per run to 1 at shutdown
+- Fixed: Memory growth eliminated - reduced from 249MB for 10 requests to 0MB with stable 80MB baseline usage
+
+### Added
+
+- Added: Memory usage regression tests in `tests/memory_usage_test.rs` to prevent future leaks
+- Added: Worker thread pattern using mpsc channel for sequential BotGuard token generation
+
+### Changed
+
+- Changed: BotGuard instance creation from per-request to single persistent instance maintained by dedicated worker thread
+- Changed: Token generation now uses message passing instead of creating new tokio runtime per request
+
 ## [0.5.3] - 2025-11-05
 
 ### Fixed
@@ -192,7 +210,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.0...v0.5.1
