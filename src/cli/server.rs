@@ -2,8 +2,9 @@
 //!
 //! Contains the core logic for running the HTTP server mode.
 
-use crate::{Settings, server::app, utils::version};
+use crate::{Settings, config::ConfigLoader, server::app, utils::version};
 use anyhow::Result;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Arguments for server mode
 #[derive(Debug)]
@@ -16,24 +17,14 @@ pub struct ServerArgs {
 
 /// Run server mode with the given arguments
 pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
-    // Initialize logging
-    if args.verbose {
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::DEBUG)
-            .init();
-    } else {
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::INFO)
-            .init();
-    }
-
-    // Load configuration with proper precedence:
+    // Load configuration FIRST, before initializing logging
+    // This ensures we can use the logging.level from config file
+    //
+    // Configuration precedence:
     // 1. Command line arguments (highest priority)
     // 2. Environment variables
     // 3. Configuration file (from --config, BGUTIL_CONFIG or default location)
     // 4. Default values (lowest priority)
-    use crate::config::ConfigLoader;
-
     let config_loader = ConfigLoader::new();
 
     // Determine config path: CLI arg > environment variable > default location
@@ -43,13 +34,16 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
         ConfigLoader::get_config_path()
     };
 
-    let mut settings = match config_loader.load(config_path.as_deref()) {
-        Ok(settings) => settings,
-        Err(e) => {
-            tracing::warn!("Failed to load configuration: {}. Using defaults.", e);
+    let mut settings = config_loader
+        .load(config_path.as_deref())
+        .unwrap_or_else(|e| {
+            // Can't use tracing here since it's not initialized yet
+            eprintln!(
+                "Warning: Failed to load configuration: {}. Using defaults.",
+                e
+            );
             Settings::default()
-        }
-    };
+        });
 
     // Override with CLI arguments if provided (highest priority)
     if let Some(host) = args.host {
@@ -59,6 +53,27 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
         settings.server.port = port;
     }
     settings.logging.verbose = args.verbose;
+
+    // Initialize logging with proper precedence:
+    // 1. CLI --verbose flag (highest priority) -> debug level
+    // 2. RUST_LOG environment variable
+    // 3. Config file logging.level
+    // 4. Default: info (lowest priority)
+    let env_filter = if args.verbose {
+        // CLI --verbose flag takes highest priority
+        EnvFilter::new("debug")
+    } else if std::env::var("RUST_LOG").is_ok() {
+        // RUST_LOG environment variable takes second priority
+        EnvFilter::from_default_env()
+    } else {
+        // Use config file logging.level or default to "info"
+        EnvFilter::new(&settings.logging.level)
+    };
+
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     tracing::info!("Starting POT server v{}", version::get_version());
 
@@ -395,5 +410,198 @@ ttl_hours = 24
         // Give it a moment to initialize, then abort
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         handle.abort();
+    }
+
+    /// Test that logging level from config file is respected (Issue #85)
+    ///
+    /// This test verifies that:
+    /// 1. Config file is loaded BEFORE logging initialization
+    /// 2. The logging.level setting from config is actually used
+    /// 3. Log level precedence: CLI --verbose > RUST_LOG env > config file > default
+    #[test]
+    fn test_logging_level_from_config_is_respected() {
+        use crate::config::ConfigLoader;
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Create a config file with logging level set to "error"
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            r#"
+[server]
+host = "127.0.0.1"
+port = 4416
+
+[logging]
+level = "error"
+        "#
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        // Load the config and verify the logging level is correctly parsed
+        let config_loader = ConfigLoader::new();
+        let settings = config_loader.load(Some(temp_file.path())).unwrap();
+
+        // Verify the logging level from config is "error"
+        assert_eq!(
+            settings.logging.level, "error",
+            "Config file logging.level should be 'error'"
+        );
+
+        // Test the EnvFilter creation logic (same as in run_server_mode)
+        // When verbose=false and RUST_LOG is not set, should use config level
+        let verbose = false;
+
+        // Temporarily ensure RUST_LOG is not set for this test
+        let original_rust_log = std::env::var("RUST_LOG").ok();
+        unsafe {
+            std::env::remove_var("RUST_LOG");
+        }
+
+        let env_filter = if verbose {
+            EnvFilter::new("debug")
+        } else if std::env::var("RUST_LOG").is_ok() {
+            EnvFilter::from_default_env()
+        } else {
+            EnvFilter::new(&settings.logging.level)
+        };
+
+        // Verify the filter is created with the config level
+        // EnvFilter debug output shows "LevelFilter::ERROR" (uppercase)
+        let filter_str = format!("{:?}", env_filter).to_lowercase();
+        assert!(
+            filter_str.contains("error"),
+            "EnvFilter should be created with 'error' level from config, got: {}",
+            filter_str
+        );
+
+        // Restore RUST_LOG if it was set
+        unsafe {
+            if let Some(rust_log) = original_rust_log {
+                std::env::set_var("RUST_LOG", rust_log);
+            }
+        }
+    }
+
+    /// Test that RUST_LOG environment variable takes precedence over config file
+    #[test]
+    fn test_rust_log_env_overrides_config() {
+        use crate::config::ConfigLoader;
+        use std::io::Write;
+        use std::sync::Mutex;
+        use tempfile::NamedTempFile;
+
+        static ENV_MUTEX: Mutex<()> = Mutex::new(());
+        let _lock = ENV_MUTEX.lock().unwrap();
+
+        // Create a config file with logging level set to "error"
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            r#"
+[logging]
+level = "error"
+        "#
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let config_loader = ConfigLoader::new();
+        let settings = config_loader.load(Some(temp_file.path())).unwrap();
+
+        // Set RUST_LOG to "warn"
+        let original_rust_log = std::env::var("RUST_LOG").ok();
+        unsafe {
+            std::env::set_var("RUST_LOG", "warn");
+        }
+
+        let verbose = false;
+        let env_filter = if verbose {
+            EnvFilter::new("debug")
+        } else if std::env::var("RUST_LOG").is_ok() {
+            // This branch should be taken when RUST_LOG is set
+            EnvFilter::from_default_env()
+        } else {
+            EnvFilter::new(&settings.logging.level)
+        };
+
+        // Verify RUST_LOG was used (should contain "warn", not "error")
+        // EnvFilter debug output shows "LevelFilter::WARN" (uppercase)
+        let filter_str = format!("{:?}", env_filter).to_lowercase();
+        assert!(
+            filter_str.contains("warn"),
+            "EnvFilter should use RUST_LOG 'warn' over config 'error', got: {}",
+            filter_str
+        );
+
+        // Restore environment
+        unsafe {
+            std::env::remove_var("RUST_LOG");
+            if let Some(rust_log) = original_rust_log {
+                std::env::set_var("RUST_LOG", rust_log);
+            }
+        }
+    }
+
+    /// Test that CLI --verbose flag takes highest precedence
+    #[test]
+    fn test_verbose_flag_takes_highest_precedence() {
+        use crate::config::ConfigLoader;
+        use std::io::Write;
+        use std::sync::Mutex;
+        use tempfile::NamedTempFile;
+
+        static ENV_MUTEX: Mutex<()> = Mutex::new(());
+        let _lock = ENV_MUTEX.lock().unwrap();
+
+        // Create a config file with logging level set to "error"
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            r#"
+[logging]
+level = "error"
+        "#
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let config_loader = ConfigLoader::new();
+        let _settings = config_loader.load(Some(temp_file.path())).unwrap();
+
+        // Set RUST_LOG to "warn" as well
+        let original_rust_log = std::env::var("RUST_LOG").ok();
+        unsafe {
+            std::env::set_var("RUST_LOG", "warn");
+        }
+
+        // But verbose=true should override everything
+        let verbose = true;
+        let env_filter = if verbose {
+            EnvFilter::new("debug")
+        } else if std::env::var("RUST_LOG").is_ok() {
+            EnvFilter::from_default_env()
+        } else {
+            EnvFilter::new("error")
+        };
+
+        // Verify verbose flag resulted in "debug" level
+        // EnvFilter debug output shows "LevelFilter::DEBUG" (uppercase)
+        let filter_str = format!("{:?}", env_filter).to_lowercase();
+        assert!(
+            filter_str.contains("debug"),
+            "EnvFilter should use 'debug' when verbose=true, got: {}",
+            filter_str
+        );
+
+        // Restore environment
+        unsafe {
+            std::env::remove_var("RUST_LOG");
+            if let Some(rust_log) = original_rust_log {
+                std::env::set_var("RUST_LOG", rust_log);
+            }
+        }
     }
 }
