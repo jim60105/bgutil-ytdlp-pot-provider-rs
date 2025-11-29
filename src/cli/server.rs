@@ -2,8 +2,9 @@
 //!
 //! Contains the core logic for running the HTTP server mode.
 
-use crate::{Settings, server::app, utils::version};
+use crate::{Settings, config::ConfigLoader, server::app, utils::version};
 use anyhow::Result;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Arguments for server mode
 #[derive(Debug)]
@@ -16,24 +17,14 @@ pub struct ServerArgs {
 
 /// Run server mode with the given arguments
 pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
-    // Initialize logging
-    if args.verbose {
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::DEBUG)
-            .init();
-    } else {
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::INFO)
-            .init();
-    }
-
-    // Load configuration with proper precedence:
+    // Load configuration FIRST, before initializing logging
+    // This ensures we can use the logging.level from config file
+    //
+    // Configuration precedence:
     // 1. Command line arguments (highest priority)
     // 2. Environment variables
     // 3. Configuration file (from --config, BGUTIL_CONFIG or default location)
     // 4. Default values (lowest priority)
-    use crate::config::ConfigLoader;
-
     let config_loader = ConfigLoader::new();
 
     // Determine config path: CLI arg > environment variable > default location
@@ -43,13 +34,16 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
         ConfigLoader::get_config_path()
     };
 
-    let mut settings = match config_loader.load(config_path.as_deref()) {
-        Ok(settings) => settings,
-        Err(e) => {
-            tracing::warn!("Failed to load configuration: {}. Using defaults.", e);
+    let mut settings = config_loader
+        .load(config_path.as_deref())
+        .unwrap_or_else(|e| {
+            // Can't use tracing here since it's not initialized yet
+            eprintln!(
+                "Warning: Failed to load configuration: {}. Using defaults.",
+                e
+            );
             Settings::default()
-        }
-    };
+        });
 
     // Override with CLI arguments if provided (highest priority)
     if let Some(host) = args.host {
@@ -59,6 +53,27 @@ pub async fn run_server_mode(args: ServerArgs) -> Result<()> {
         settings.server.port = port;
     }
     settings.logging.verbose = args.verbose;
+
+    // Initialize logging with proper precedence:
+    // 1. CLI --verbose flag (highest priority) -> debug level
+    // 2. RUST_LOG environment variable
+    // 3. Config file logging.level
+    // 4. Default: info (lowest priority)
+    let env_filter = if args.verbose {
+        // CLI --verbose flag takes highest priority
+        EnvFilter::new("debug")
+    } else if std::env::var("RUST_LOG").is_ok() {
+        // RUST_LOG environment variable takes second priority
+        EnvFilter::from_default_env()
+    } else {
+        // Use config file logging.level or default to "info"
+        EnvFilter::new(&settings.logging.level)
+    };
+
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     tracing::info!("Starting POT server v{}", version::get_version());
 
