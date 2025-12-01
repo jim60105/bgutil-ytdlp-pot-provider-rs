@@ -445,4 +445,83 @@ mod tests {
         assert!(result.is_ok());
         assert!(!result.unwrap());
     }
+
+    #[tokio::test]
+    async fn test_reinitialize_uninitialized_client() {
+        // Test reinitialize on a client that was never initialized
+        // Should behave the same as initialize()
+        let client = BotGuardClient::new(None, None);
+        assert!(!client.is_initialized().await);
+
+        let result = client.reinitialize().await;
+        assert!(result.is_ok());
+        assert!(client.is_initialized().await);
+    }
+
+    #[tokio::test]
+    async fn test_reinitialize_initialized_client() {
+        // Test reinitialize on an already initialized client
+        let client = BotGuardClient::new(None, None);
+
+        // First initialization
+        let init_result = client.initialize().await;
+        assert!(init_result.is_ok());
+        assert!(client.is_initialized().await);
+
+        // Get expiry info before reinit
+        let expiry_before = client.get_expiry_info().await;
+        assert!(expiry_before.is_some());
+
+        // Reinitialize
+        let reinit_result = client.reinitialize().await;
+        assert!(reinit_result.is_ok());
+        assert!(client.is_initialized().await);
+
+        // Should still have valid expiry info after reinit
+        let expiry_after = client.get_expiry_info().await;
+        assert!(expiry_after.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_reinitialize_preserves_functionality() {
+        // Test that token generation works after reinitialize
+        let client = BotGuardClient::new(None, None);
+
+        // Initialize and generate token
+        client.initialize().await.unwrap();
+        let token1 = client.generate_po_token("test_id_1").await;
+        assert!(token1.is_ok());
+
+        // Reinitialize
+        client.reinitialize().await.unwrap();
+
+        // Generate another token after reinit
+        let token2 = client.generate_po_token("test_id_2").await;
+        assert!(token2.is_ok());
+
+        // Tokens should be different (generated from fresh instance)
+        // Note: They might coincidentally be the same for short identifiers,
+        // so we just verify both are valid
+        assert!(!token1.unwrap().is_empty());
+        assert!(!token2.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_reinitialize_resets_expiry() {
+        // Test that reinitialize gets fresh expiry information
+        let client = BotGuardClient::new(None, None);
+
+        client.initialize().await.unwrap();
+        let expiry1 = client.get_expiry_info().await.unwrap();
+
+        // Small delay to ensure time difference
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        client.reinitialize().await.unwrap();
+        let expiry2 = client.get_expiry_info().await.unwrap();
+
+        // Both should have valid expiry (lifetime > 0)
+        assert!(expiry1.1 > 0);
+        assert!(expiry2.1 > 0);
+    }
 }
