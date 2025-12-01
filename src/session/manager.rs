@@ -484,6 +484,54 @@ where
         self.initialize_botguard().await?;
 
         // Get real expiry information from BotGuard
+        let (expires_at, lifetime_secs) = self.get_botguard_expiry_as_chrono().await?;
+
+        // WORKAROUND: Check if the BotGuard instance has expired and reinitialize if needed.
+        // This can happen due to a bug in rustypipe-botguard where the static OnceLock
+        // snapshot cache is not re-validated after expiry in long-running processes.
+        // See: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/issues/87
+        let now = Utc::now();
+        if expires_at < now {
+            tracing::warn!(
+                "BotGuard snapshot has expired! expires_at={}, now={}. Reinitializing BotGuard...",
+                expires_at,
+                now
+            );
+
+            // Reinitialize BotGuard to get fresh snapshot
+            self.botguard_client.reinitialize().await.map_err(|e| {
+                crate::Error::token_generation(format!(
+                    "Failed to reinitialize BotGuard after expiry: {}",
+                    e
+                ))
+            })?;
+
+            // Get updated expiry information after reinitialization
+            let (new_expires_at, new_lifetime_secs) =
+                self.get_botguard_expiry_as_chrono().await.map_err(|e| {
+                    crate::Error::token_generation(format!(
+                        "Cannot get BotGuard expiry info after reinitialization: {}",
+                        e
+                    ))
+                })?;
+
+            tracing::info!(
+                "BotGuard reinitialized successfully - new expires_at: {}, lifetime: {}s",
+                new_expires_at,
+                new_lifetime_secs
+            );
+
+            return self
+                .create_token_minter_entry(new_expires_at, new_lifetime_secs)
+                .await;
+        }
+
+        self.create_token_minter_entry(expires_at, lifetime_secs)
+            .await
+    }
+
+    /// Get BotGuard expiry information and convert to chrono types
+    async fn get_botguard_expiry_as_chrono(&self) -> Result<(chrono::DateTime<chrono::Utc>, u32)> {
         let expiry_info = self
             .botguard_client
             .get_expiry_info()
@@ -499,6 +547,15 @@ where
         )
         .ok_or_else(|| crate::Error::token_generation("Invalid timestamp from BotGuard"))?;
 
+        Ok((expires_at, lifetime_secs))
+    }
+
+    /// Create a TokenMinterEntry with the given expiry information
+    async fn create_token_minter_entry(
+        &self,
+        expires_at: chrono::DateTime<chrono::Utc>,
+        lifetime_secs: u32,
+    ) -> Result<TokenMinterEntry> {
         // Generate an integrity token using BotGuard
         // For TokenMinter, we use a specific identifier that indicates this is for integrity purposes
         let integrity_token = self
@@ -1177,6 +1234,102 @@ mod tests {
 
         assert!(expired_result.is_expired());
         assert!(!valid_result.is_expired());
+    }
+
+    #[tokio::test]
+    async fn test_get_botguard_expiry_as_chrono() {
+        // Test the helper method that converts BotGuard expiry to chrono types
+        let settings = Settings::default();
+        let manager = SessionManager::new(settings);
+
+        // Initialize BotGuard first
+        manager.initialize_botguard().await.unwrap();
+
+        // Get expiry info
+        let result = manager.get_botguard_expiry_as_chrono().await;
+        assert!(result.is_ok());
+
+        let (expires_at, lifetime_secs) = result.unwrap();
+
+        // Expiry should be in the future
+        let now = Utc::now();
+        assert!(expires_at > now);
+
+        // Lifetime should be positive
+        assert!(lifetime_secs > 0);
+    }
+
+    #[tokio::test]
+    async fn test_create_token_minter_entry() {
+        // Test the helper method that creates TokenMinterEntry
+        let settings = Settings::default();
+        let manager = SessionManager::new(settings);
+
+        // Initialize BotGuard first
+        manager.initialize_botguard().await.unwrap();
+
+        let expires_at = Utc::now() + Duration::hours(6);
+        let lifetime_secs = 21600u32; // 6 hours
+
+        let result = manager
+            .create_token_minter_entry(expires_at, lifetime_secs)
+            .await;
+        assert!(result.is_ok());
+
+        let entry = result.unwrap();
+        assert!(!entry.is_expired());
+        assert!(!entry.integrity_token.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_botguard_reinitialize_on_token_generation() {
+        // Test that token generation still works after BotGuard reinitialization
+        let settings = Settings::default();
+        let manager = SessionManager::new(settings);
+
+        // Generate first token
+        let request1 = PotRequest::new().with_content_binding("reinit_test_1");
+        let response1 = manager.generate_pot_token(&request1).await.unwrap();
+        assert!(!response1.po_token.is_empty());
+
+        // Force reinitialize BotGuard
+        manager.botguard_client.reinitialize().await.unwrap();
+
+        // Generate another token after reinit - should still work
+        let request2 = PotRequest::new()
+            .with_content_binding("reinit_test_2")
+            .with_bypass_cache(true);
+        let response2 = manager.generate_pot_token(&request2).await.unwrap();
+        assert!(!response2.po_token.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_minter_cache_after_reinitialize() {
+        // Test that minter cache is properly handled after BotGuard reinitialization
+        let settings = Settings::default();
+        let manager = SessionManager::new(settings);
+
+        // Generate token to populate minter cache
+        let request = PotRequest::new().with_content_binding("minter_cache_reinit");
+        let _response = manager.generate_pot_token(&request).await.unwrap();
+
+        // Verify minter cache has entries
+        let cache_keys_before = manager.get_minter_cache_keys().await.unwrap();
+        assert!(!cache_keys_before.is_empty());
+
+        // Force reinitialize BotGuard
+        manager.botguard_client.reinitialize().await.unwrap();
+
+        // Minter cache should still have entries (cached minters are separate from BotGuard state)
+        let cache_keys_after = manager.get_minter_cache_keys().await.unwrap();
+        assert_eq!(cache_keys_before.len(), cache_keys_after.len());
+
+        // But generating a new token should work with the reinitialized BotGuard
+        let request2 = PotRequest::new()
+            .with_content_binding("new_after_reinit")
+            .with_bypass_cache(true);
+        let response = manager.generate_pot_token(&request2).await.unwrap();
+        assert!(!response.po_token.is_empty());
     }
 }
 
