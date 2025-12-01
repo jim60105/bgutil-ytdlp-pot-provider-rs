@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-01
+
+### Added
+
+- Added: `--config` option to server subcommand allowing users to specify configuration file path via CLI argument (#84, #83)
+- Added: `BotGuardClient::reinitialize()` method for gracefully restarting BotGuard worker with fresh snapshot data (#88, #87)
+- Added: Helper methods `get_botguard_expiry_as_chrono()` and `create_token_minter_entry()` for better code organization
+
+### Fixed
+
+- Fixed: Long-running processes now automatically reinitialize expired BotGuard snapshots instead of generating invalid POT tokens (#88, #87)
+- Fixed: Logging level from configuration file is now properly respected in server mode (#86, #85)
+- Fixed: Log level precedence correctly implemented: CLI `--verbose` > `RUST_LOG` env var > config file > default
+
+### Changed
+
+- Changed: API documentation updated to reflect actual binary structure (`bgutil-pot server` instead of `bgutil-pot-server`)
+- Changed: Server mode logging initialization reordered to load configuration before setting up tracing
+- Changed: Logging system migrated from `tracing_subscriber::fmt()` to registry-based approach with `EnvFilter` for flexible configuration
+
 ## [0.5.4] - 2025-11-20
 
 ### Fixed
@@ -210,7 +230,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.1...v0.5.2
