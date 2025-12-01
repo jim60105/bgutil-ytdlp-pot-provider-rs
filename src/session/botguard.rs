@@ -197,6 +197,39 @@ impl BotGuardClient {
         self.initialized.load(std::sync::atomic::Ordering::Relaxed)
     }
 
+    /// Reinitialize the BotGuard client by shutting down the existing worker and starting a new one.
+    /// This is useful when the BotGuard snapshot has expired and needs to be refreshed.
+    pub async fn reinitialize(&self) -> Result<()> {
+        tracing::info!("Reinitializing BotGuard client due to expired snapshot");
+
+        // Shutdown existing worker if running
+        if self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            // Acquire global mutex to ensure no operations are in progress
+            let _guard = BOTGUARD_MUTEX.lock().await;
+
+            // Send shutdown command to existing worker
+            if let Some(tx) = self.command_tx.read().await.as_ref() {
+                let _ = tx.send(BotGuardCommand::Shutdown);
+            }
+
+            // Clear the command channel
+            {
+                let mut command_tx = self.command_tx.write().await;
+                *command_tx = None;
+            }
+
+            // Mark as uninitialized
+            self.initialized
+                .store(false, std::sync::atomic::Ordering::Relaxed);
+
+            // Give the worker thread time to shutdown
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+
+        // Initialize fresh instance
+        self.initialize().await
+    }
+
     /// Get expiry information from the BotGuard worker
     pub async fn get_expiry_info(&self) -> Option<(OffsetDateTime, u32)> {
         if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {

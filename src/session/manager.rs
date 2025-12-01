@@ -484,6 +484,54 @@ where
         self.initialize_botguard().await?;
 
         // Get real expiry information from BotGuard
+        let (expires_at, lifetime_secs) = self.get_botguard_expiry_as_chrono().await?;
+
+        // WORKAROUND: Check if the BotGuard instance has expired and reinitialize if needed.
+        // This can happen due to a bug in rustypipe-botguard where the static OnceLock
+        // snapshot cache is not re-validated after expiry in long-running processes.
+        // See: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/issues/87
+        let now = Utc::now();
+        if expires_at < now {
+            tracing::warn!(
+                "BotGuard snapshot has expired! expires_at={}, now={}. Reinitializing BotGuard...",
+                expires_at,
+                now
+            );
+
+            // Reinitialize BotGuard to get fresh snapshot
+            self.botguard_client.reinitialize().await.map_err(|e| {
+                crate::Error::token_generation(format!(
+                    "Failed to reinitialize BotGuard after expiry: {}",
+                    e
+                ))
+            })?;
+
+            // Get updated expiry information after reinitialization
+            let (new_expires_at, new_lifetime_secs) =
+                self.get_botguard_expiry_as_chrono().await.map_err(|e| {
+                    crate::Error::token_generation(format!(
+                        "Cannot get BotGuard expiry info after reinitialization: {}",
+                        e
+                    ))
+                })?;
+
+            tracing::info!(
+                "BotGuard reinitialized successfully - new expires_at: {}, lifetime: {}s",
+                new_expires_at,
+                new_lifetime_secs
+            );
+
+            return self
+                .create_token_minter_entry(new_expires_at, new_lifetime_secs)
+                .await;
+        }
+
+        self.create_token_minter_entry(expires_at, lifetime_secs)
+            .await
+    }
+
+    /// Get BotGuard expiry information and convert to chrono types
+    async fn get_botguard_expiry_as_chrono(&self) -> Result<(chrono::DateTime<chrono::Utc>, u32)> {
         let expiry_info = self
             .botguard_client
             .get_expiry_info()
@@ -499,6 +547,15 @@ where
         )
         .ok_or_else(|| crate::Error::token_generation("Invalid timestamp from BotGuard"))?;
 
+        Ok((expires_at, lifetime_secs))
+    }
+
+    /// Create a TokenMinterEntry with the given expiry information
+    async fn create_token_minter_entry(
+        &self,
+        expires_at: chrono::DateTime<chrono::Utc>,
+        lifetime_secs: u32,
+    ) -> Result<TokenMinterEntry> {
         // Generate an integrity token using BotGuard
         // For TokenMinter, we use a specific identifier that indicates this is for integrity purposes
         let integrity_token = self
