@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-12-28
+
+### Fixed
+
+- Fixed: POT token validation maximum length increased from 200 to 250 characters to accommodate longer BotGuard tokens (#90, #89)
+- Fixed: Valid BotGuard tokens of 212 characters no longer rejected due to overly restrictive length validation
+
 ## [0.6.0] - 2025-12-01
 
 ### Added
@@ -230,7 +237,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.2...v0.5.3
