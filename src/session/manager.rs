@@ -793,9 +793,10 @@ where
 
     /// Validate POT token format
     fn validate_po_token(&self, token: &str) -> Result<()> {
-        // POT tokens should be at least 80 characters and at most 200 characters
-        // Real BotGuard tokens can vary significantly in length (96-168+ chars observed)
-        if token.len() < 80 || token.len() > 200 {
+        // POT tokens should be at least 80 characters and at most 250 characters
+        // Real BotGuard tokens can vary significantly in length (96-212+ chars observed)
+        // Increased upper limit from 200 to 250 to accommodate longer tokens (issue #89)
+        if token.len() < 80 || token.len() > 250 {
             return Err(crate::Error::invalid_pot_token(token));
         }
 
@@ -1183,12 +1184,16 @@ mod tests {
         let valid_token = "A".repeat(96);
         assert!(manager.validate_po_token(&valid_token).is_ok());
 
+        // Valid token at upper boundary should pass (issue #89)
+        let long_valid_token = "A".repeat(212);
+        assert!(manager.validate_po_token(&long_valid_token).is_ok());
+
         // Too short should fail
         let short_token = "A".repeat(70);
         assert!(manager.validate_po_token(&short_token).is_err());
 
-        // Too long should fail
-        let long_token = "A".repeat(220);
+        // Too long should fail (above new 250 limit)
+        let long_token = "A".repeat(260);
         assert!(manager.validate_po_token(&long_token).is_err());
 
         // Invalid characters should fail
