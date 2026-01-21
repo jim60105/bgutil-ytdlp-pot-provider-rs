@@ -24,13 +24,13 @@ async fn test_generate_pot_with_video_id_format() {
     let request = PotRequest::new().with_content_binding("dQw4w9WgXcQ");
 
     let response = session_manager.generate_pot_token(&request).await;
-    
+
     assert!(
         response.is_ok(),
         "POT generation with video ID format should succeed: {:?}",
         response.err()
     );
-    
+
     let response = response.unwrap();
     assert_eq!(response.content_binding, "dQw4w9WgXcQ");
     assert!(!response.po_token.is_empty());
@@ -41,17 +41,16 @@ async fn test_generate_pot_with_visitor_data_format() {
     // Visitor data format: longer string (16+ chars), alphanumeric + - and _
     let session_manager = create_test_session_manager().await;
 
-    let request = PotRequest::new()
-        .with_content_binding("CgtEeHVoMzlVU0E1NCig");
+    let request = PotRequest::new().with_content_binding("CgtEeHVoMzlVU0E1NCig");
 
     let response = session_manager.generate_pot_token(&request).await;
-    
+
     assert!(
         response.is_ok(),
         "POT generation with visitor data format should succeed: {:?}",
         response.err()
     );
-    
+
     let response = response.unwrap();
     assert_eq!(response.content_binding, "CgtEeHVoMzlVU0E1NCig");
     assert!(!response.po_token.is_empty());
@@ -73,14 +72,14 @@ async fn test_generate_pot_with_custom_binding_format() {
         let request = PotRequest::new().with_content_binding(content_binding);
 
         let response = session_manager.generate_pot_token(&request).await;
-        
+
         assert!(
             response.is_ok(),
             "POT generation with custom format '{}' should succeed: {:?}",
             content_binding,
             response.err()
         );
-        
+
         let response = response.unwrap();
         assert_eq!(response.content_binding, content_binding);
         assert!(!response.po_token.is_empty());
@@ -97,13 +96,13 @@ async fn test_cli_mode_with_disable_innertube() {
         .with_disable_innertube(true);
 
     let response = session_manager.generate_pot_token(&request).await;
-    
+
     assert!(
         response.is_ok(),
         "CLI mode with disable_innertube should succeed: {:?}",
         response.err()
     );
-    
+
     let response = response.unwrap();
     assert_eq!(response.content_binding, "test_video_id");
     assert!(!response.po_token.is_empty());
@@ -119,13 +118,13 @@ async fn test_video_id_format_with_disable_innertube() {
         .with_disable_innertube(true);
 
     let response = session_manager.generate_pot_token(&request).await;
-    
+
     assert!(
         response.is_ok(),
         "Video ID with disable_innertube should succeed: {:?}",
         response.err()
     );
-    
+
     let response = response.unwrap();
     assert_eq!(response.content_binding, "dQw4w9WgXcQ");
     assert!(!response.po_token.is_empty());
@@ -145,16 +144,16 @@ async fn test_multiple_formats_sequential() {
 
     for (content_binding, description) in test_cases {
         let request = PotRequest::new().with_content_binding(content_binding);
-        
+
         let response = session_manager.generate_pot_token(&request).await;
-        
+
         assert!(
             response.is_ok(),
             "POT generation for {} should succeed: {:?}",
             description,
             response.err()
         );
-        
+
         let response = response.unwrap();
         assert_eq!(response.content_binding, content_binding);
         assert!(!response.po_token.is_empty());
