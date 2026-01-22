@@ -89,6 +89,14 @@ impl BotGuardClient {
                 .expect("Failed to create BotGuard worker runtime");
 
             rt.block_on(async move {
+                // Ensure snapshot directory exists if snapshot path is configured
+                if let Some(ref path) = snapshot_path
+                    && let Some(parent) = path.parent()
+                    && let Err(e) = std::fs::create_dir_all(parent)
+                {
+                    tracing::warn!("Failed to create snapshot directory: {}", e);
+                }
+
                 // Initialize Botguard once
                 let mut builder = rustypipe_botguard::Botguard::builder();
 
@@ -143,9 +151,9 @@ impl BotGuardClient {
                 // write_snapshot() causes the "v8::OwnedIsolate for snapshot was leaked" warning.
                 // The write_snapshot() method consumes the Botguard instance and properly
                 // extracts the snapshot data before dropping the V8 isolate.
-                let snapshot_written = botguard.write_snapshot().await;
-                if snapshot_written {
-                    tracing::debug!("BotGuard snapshot written during shutdown");
+                match botguard.write_snapshot().await {
+                    true => tracing::debug!("BotGuard snapshot written during shutdown"),
+                    false => tracing::warn!("BotGuard snapshot write failed or not configured"),
                 }
                 tracing::info!("BotGuard worker stopped");
             });
