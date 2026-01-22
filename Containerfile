@@ -16,7 +16,7 @@ WORKDIR /app
 
 # Create directories with correct permissions
 ARG UID
-RUN install -d -m 775 -o $UID -g 0 /licenses
+RUN install -d -m 775 -o $UID -g 0 /newdir
 
 # Enable static linking for Rust binaries
 ENV RUSTFLAGS="-C target-feature=+crt-static"
@@ -132,7 +132,8 @@ ARG UID
 COPY --chown=$UID:0 --chmod=775 --from=compress /dumb-init /dumb-init
 
 # Create directories with correct permissions
-COPY --chown=$UID:0 --chmod=775 --from=chef /licenses /licenses
+COPY --chown=$UID:0 --chmod=775 --from=chef /newdir /licenses
+COPY --chown=$UID:0 --chmod=775 --from=chef /newdir /.cache
 
 # Copy licenses (OpenShift Policy)
 COPY --chown=$UID:0 --chmod=775 LICENSE /licenses/LICENSE
