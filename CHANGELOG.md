@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-01-23
+
+### Fixed
+
+- Fixed: Snapshot directory creation before BotGuard initialization to prevent "file I/O: No such file or directory" errors
+- Fixed: V8 isolate leak warning in CLI mode by implementing proper cleanup with shutdown methods and Drop trait
+- Fixed: Permission denied errors during container cache creation by restructuring directory setup in Containerfile
+
+### Changed
+
+- Changed: Default BotGuard snapshot path moved from user data directory to temp directory for better portability and to avoid permission issues
+- Changed: Documentation updated to reflect unified CLI commands (bgutil-pot binary with server subcommand)
+- Changed: Agent guidance documentation surfaced to top-level AGENTS.md for better visibility
+
 ## [0.6.2] - 2026-01-22
 
 ### Fixed
@@ -254,7 +268,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.4...v0.6.0
