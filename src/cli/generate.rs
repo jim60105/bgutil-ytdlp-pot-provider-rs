@@ -111,8 +111,15 @@ pub async fn run_generate_mode(args: GenerateArgs) -> Result<()> {
                 "Successfully generated POT token for content binding: {:?}",
                 request.content_binding
             );
+
+            // Shutdown session manager to properly cleanup V8 isolates
+            // This prevents the "v8::OwnedIsolate for snapshot was leaked" warning
+            session_manager.shutdown().await;
         }
         Err(e) => {
+            // Shutdown session manager before exiting on error
+            session_manager.shutdown().await;
+
             eprintln!("Failed while generating POT. Error: {}", e);
 
             // Output empty JSON on error (matching TypeScript behavior)

@@ -137,8 +137,16 @@ impl BotGuardClient {
                     }
                 }
 
-                // Botguard instance will be dropped here, cleaning up V8 isolate properly
-                drop(botguard);
+                // Properly cleanup the Botguard instance by writing snapshot if configured.
+                // This is necessary because rustypipe-botguard uses JsRuntimeForSnapshot
+                // when a snapshot path is configured, and dropping it without calling
+                // write_snapshot() causes the "v8::OwnedIsolate for snapshot was leaked" warning.
+                // The write_snapshot() method consumes the Botguard instance and properly
+                // extracts the snapshot data before dropping the V8 isolate.
+                let snapshot_written = botguard.write_snapshot().await;
+                if snapshot_written {
+                    tracing::debug!("BotGuard snapshot written during shutdown");
+                }
                 tracing::info!("BotGuard worker stopped");
             });
         });
@@ -303,12 +311,78 @@ impl BotGuardClient {
         // without creating a new instance
         None
     }
+
+    /// Shutdown the BotGuard worker thread and wait for it to complete.
+    /// This ensures proper cleanup of V8 isolates to avoid the
+    /// "v8::OwnedIsolate for snapshot was leaked" warning.
+    ///
+    /// This method should be called before the process exits, especially in
+    /// CLI mode where the process terminates immediately after generating a token.
+    pub async fn shutdown(&self) {
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+
+        tracing::debug!("Shutting down BotGuard client");
+
+        // Send shutdown command to the worker
+        if let Some(tx) = self.command_tx.read().await.as_ref() {
+            let _ = tx.send(BotGuardCommand::Shutdown);
+        }
+
+        // Clear the command channel
+        {
+            let mut command_tx = self.command_tx.write().await;
+            *command_tx = None;
+        }
+
+        // Mark as uninitialized
+        self.initialized
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+
+        // Give the worker thread time to shutdown and cleanup V8 isolate
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        tracing::debug!("BotGuard client shutdown complete");
+    }
+
+    /// Synchronous shutdown for use in Drop trait or when tokio runtime is not available.
+    /// This is a best-effort cleanup that sends the shutdown command without waiting.
+    pub fn shutdown_sync(&self) {
+        if !self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+
+        // Try to send shutdown command using blocking approach
+        // We need to use try_read to avoid blocking indefinitely
+        if let Ok(guard) = self.command_tx.try_read()
+            && let Some(tx) = guard.as_ref()
+        {
+            let _ = tx.send(BotGuardCommand::Shutdown);
+        }
+
+        self.initialized
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 // Explicit trait implementations for thread safety
 // BotGuardClient uses AtomicBool and owned types, making it Send + Sync safe
 unsafe impl Send for BotGuardClient {}
 unsafe impl Sync for BotGuardClient {}
+
+impl Drop for BotGuardClient {
+    fn drop(&mut self) {
+        // Perform synchronous shutdown to ensure V8 isolate cleanup
+        // This is a best-effort cleanup - we can't await in drop
+        self.shutdown_sync();
+
+        // Give a brief moment for the shutdown command to be processed
+        // Note: This is not ideal but necessary to avoid the V8 leak warning
+        // in CLI mode where the process exits immediately
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
 
 #[cfg(test)]
 mod tests {

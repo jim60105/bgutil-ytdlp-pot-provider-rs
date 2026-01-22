@@ -849,6 +849,17 @@ where
         // Access the http_client field to verify it's readable
         format!("{:?}", self.http_client).contains("Client")
     }
+
+    /// Shutdown the session manager and all associated resources.
+    ///
+    /// This method ensures proper cleanup of the BotGuard client and V8 isolates,
+    /// preventing the "v8::OwnedIsolate for snapshot was leaked" warning.
+    /// It should be called before the process exits, especially in CLI mode.
+    pub async fn shutdown(&self) {
+        tracing::debug!("Shutting down session manager");
+        self.botguard_client.shutdown().await;
+        tracing::debug!("Session manager shutdown complete");
+    }
 }
 
 #[cfg(test)]
