@@ -55,19 +55,18 @@ cargo build
 # Release build
 cargo build --release
 
-# Build specific binaries
-cargo build --bin bgutil-pot-server
-cargo build --bin bgutil-pot-generate
+# Build binary
+cargo build --bin bgutil-pot
 ```
 
 ### 3. Running the Application
 
 ```bash
 # Run HTTP server
-cargo run --bin bgutil-pot-server
+cargo run --bin bgutil-pot -- server
 
 # Generate POT token (script mode)
-cargo run --bin bgutil-pot-generate -- --content-binding "VIDEO_ID"
+cargo run --bin bgutil-pot -- --content-binding "VIDEO_ID"
 ```
 
 ## Code Quality Standards
@@ -210,7 +209,7 @@ cargo test --doc --all-features
 ### Key Directories
 
 - `src/`: Main Rust source code
-  - `bin/`: Binary entry points (server.rs, generate.rs)
+  - `main.rs`: Unified CLI entry point with server and generate subcommands
   - `config/`: Configuration management
   - `server/`: HTTP server implementation
   - `session/`: POT token generation logic
@@ -322,10 +321,10 @@ export POT_SERVER_PORT="8080"
 
 ```bash
 # Run with debug output
-RUST_LOG=debug cargo run --bin bgutil-pot-server
+RUST_LOG=debug cargo run --bin bgutil-pot -- server
 
 # Build with debug info
-cargo build --bin bgutil-pot-server
+cargo build --bin bgutil-pot
 ```
 
 ### Performance Profiling
