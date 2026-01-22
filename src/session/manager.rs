@@ -606,6 +606,10 @@ where
     /// Mint POT token using the BotGuard client (replaces WebPoMinter)
     ///
     /// Corresponds to TypeScript: `tryMintPOT` method (L410-436)
+    ///
+    /// This implementation matches TypeScript behavior by directly using content_binding
+    /// as the identifier for token generation, without complex token type determination
+    /// or forced Innertube API calls.
     async fn mint_pot_token(
         &self,
         content_binding: &str,
@@ -613,24 +617,34 @@ where
     ) -> Result<SessionData> {
         tracing::info!("Generating POT for {}", content_binding);
 
-        // Determine token type and create context based on content_binding
-        let context = self.create_pot_context(content_binding).await?;
+        // Ensure BotGuard is initialized
+        if !self.botguard_client.is_initialized().await {
+            self.initialize_botguard().await?;
+        }
 
-        // Generate POT token with fallback
-        let result = self.try_mint_pot_with_fallback(&context).await?;
+        // Directly use content_binding as identifier (matching TypeScript behavior)
+        // This avoids forced Innertube API calls and improves robustness
+        let po_token = self
+            .botguard_client
+            .generate_po_token(content_binding)
+            .await?;
+
+        // Validate the generated token
+        self.validate_po_token(&po_token)?;
 
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 
-        tracing::info!("Generated POT token: {}", result.po_token);
+        tracing::info!("Generated POT token: {}", po_token);
 
-        Ok(SessionData::new(
-            result.po_token,
-            content_binding,
-            expires_at,
-        ))
+        Ok(SessionData::new(po_token, content_binding, expires_at))
     }
 
     /// Create POT context from content binding
+    ///
+    /// NOTE: This method is currently unused after simplifying token generation to match
+    /// TypeScript behavior. It's kept for potential future use when we need more complex
+    /// token type determination logic.
+    #[allow(dead_code)]
     async fn create_pot_context(&self, content_binding: &str) -> Result<PotContext> {
         // Analyze content_binding to determine token type
         let token_type = self.determine_token_type(content_binding);
@@ -666,6 +680,10 @@ where
     }
 
     /// Determine token type from content binding
+    ///
+    /// NOTE: This method is currently unused after simplifying token generation to match
+    /// TypeScript behavior. It's kept for potential future use.
+    #[allow(dead_code)]
     fn determine_token_type(&self, content_binding: &str) -> PotTokenType {
         if self.is_video_id_format(content_binding) {
             PotTokenType::ContentBound
@@ -678,6 +696,10 @@ where
     }
 
     /// Check if string looks like a YouTube video ID
+    ///
+    /// NOTE: This method is currently unused after simplifying token generation to match
+    /// TypeScript behavior. It's kept for potential future use.
+    #[allow(dead_code)]
     fn is_video_id_format(&self, s: &str) -> bool {
         // YouTube video IDs are typically 11 characters, alphanumeric plus - and _
         s.len() == 11
@@ -686,6 +708,10 @@ where
     }
 
     /// Check if string looks like visitor data
+    ///
+    /// NOTE: This method is currently unused after simplifying token generation to match
+    /// TypeScript behavior. It's kept for potential future use.
+    #[allow(dead_code)]
     fn is_visitor_data_format(&self, s: &str) -> bool {
         // Visitor data is typically longer and contains specific patterns
         s.len() > 15
