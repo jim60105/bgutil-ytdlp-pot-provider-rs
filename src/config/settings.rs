@@ -328,9 +328,8 @@ impl Default for BotGuardSettings {
             disable_innertube: false,
             challenge_endpoint: None,
             snapshot_path: Some(
-                dirs::data_dir()
-                    .unwrap_or_else(|| std::path::PathBuf::from("."))
-                    .join("bgutil-ytdlp-pot-provider")
+                std::env::temp_dir()
+                    .join("bgutil-pot")
                     .join("botguard_snapshot.bin"),
             ),
             user_agent: None, // Use rustypipe-botguard default
