@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-01-22
+
+### Fixed
+
+- Fixed: CLI exit code 1 failures when generating POT tokens by removing forced Innertube API calls that diverged from TypeScript reference implementation (#92, #91)
+- Fixed: Token generation now directly passes content_binding to BotGuard client regardless of format, matching TypeScript behavior
+- Fixed: CLI robustness improved when Innertube API is unavailable or rate-limited
+
+### Changed
+
+- Changed: Simplified `mint_pot_token` method to eliminate complex token type determination logic during generation
+- Changed: Token type helper methods (`determine_token_type`, `is_video_id_format`, `is_visitor_data_format`) marked as unused for potential future use
+
+### Added
+
+- Added: 8 comprehensive CLI robustness tests covering video ID formats, visitor data formats, custom formats, and bypass_cache functionality
+
 ## [0.6.1] - 2025-12-28
 
 ### Fixed
@@ -237,7 +254,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.5.3...v0.5.4
