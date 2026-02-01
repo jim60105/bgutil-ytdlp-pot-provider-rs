@@ -38,7 +38,12 @@ struct Cli {
 
     // Generate mode options (when no subcommand is provided)
     /// Content binding (video ID, visitor data, etc.)
-    #[arg(short, long, value_name = "CONTENT_BINDING")]
+    #[arg(
+        short,
+        long,
+        value_name = "CONTENT_BINDING",
+        allow_hyphen_values = true
+    )]
     content_binding: Option<String>,
 
     /// Visitor data (DEPRECATED: use --content-binding instead)
@@ -217,5 +222,23 @@ mod tests {
         assert!(cli.content_binding.is_none());
         assert!(!cli.bypass_cache);
         assert!(!cli.verbose);
+    }
+
+    #[test]
+    fn test_content_binding_with_dash_prefix() {
+        // Test video ID starting with dash (e.g., YouTube video ID -6OjhRWNLfk)
+        let cli = Cli::parse_from(&["bgutil-pot", "-c", "-6OjhRWNLfk"]);
+
+        assert!(cli.command.is_none());
+        assert_eq!(cli.content_binding, Some("-6OjhRWNLfk".to_string()));
+    }
+
+    #[test]
+    fn test_content_binding_with_dash_prefix_long_form() {
+        // Test with long form argument
+        let cli = Cli::parse_from(&["bgutil-pot", "--content-binding", "-6OjhRWNLfk"]);
+
+        assert!(cli.command.is_none());
+        assert_eq!(cli.content_binding, Some("-6OjhRWNLfk".to_string()));
     }
 }
