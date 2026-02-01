@@ -819,10 +819,13 @@ where
 
     /// Validate POT token format
     fn validate_po_token(&self, token: &str) -> Result<()> {
-        // POT tokens should be at least 80 characters and at most 250 characters
-        // Real BotGuard tokens can vary significantly in length (96-212+ chars observed)
-        // Increased upper limit from 200 to 250 to accommodate longer tokens (issue #89)
-        if token.len() < 80 || token.len() > 250 {
+        // POT tokens should be at least 80 characters and at most 1500 characters
+        // Real BotGuard tokens can vary significantly in length:
+        // - Simple tokens: ~100-250 characters (short video IDs)
+        // - Complex tokens: ~800-1000 characters (complex content bindings with protobuf data)
+        // Increased upper limit from 250 to 1500 to accommodate tokens with complex
+        // content bindings (issue #93). Documentation indicates average size ~1KB.
+        if token.len() < 80 || token.len() > 1500 {
             return Err(crate::Error::invalid_pot_token(token));
         }
 
@@ -1217,21 +1220,30 @@ mod tests {
         let settings = Settings::default();
         let manager = SessionManager::new(settings);
 
-        // Valid token should pass - use typical BotGuard token length
+        // Valid token should pass - use typical BotGuard token length for simple content
         let valid_token = "A".repeat(96);
         assert!(manager.validate_po_token(&valid_token).is_ok());
 
-        // Valid token at upper boundary should pass (issue #89)
+        // Valid token at previous upper boundary should pass (issue #89)
         let long_valid_token = "A".repeat(212);
         assert!(manager.validate_po_token(&long_valid_token).is_ok());
+
+        // Valid token for complex content bindings (issue #93)
+        // Real-world tokens with complex protobuf content bindings can be ~800 characters
+        let complex_token = "A".repeat(792);
+        assert!(manager.validate_po_token(&complex_token).is_ok());
+
+        // Valid token near new upper boundary should pass
+        let very_long_token = "A".repeat(1400);
+        assert!(manager.validate_po_token(&very_long_token).is_ok());
 
         // Too short should fail
         let short_token = "A".repeat(70);
         assert!(manager.validate_po_token(&short_token).is_err());
 
-        // Too long should fail (above new 250 limit)
-        let long_token = "A".repeat(260);
-        assert!(manager.validate_po_token(&long_token).is_err());
+        // Too long should fail (above new 1500 limit)
+        let too_long_token = "A".repeat(1600);
+        assert!(manager.validate_po_token(&too_long_token).is_err());
 
         // Invalid characters should fail
         let invalid_token = format!("{}{}", "A".repeat(85), "!@#$%");
