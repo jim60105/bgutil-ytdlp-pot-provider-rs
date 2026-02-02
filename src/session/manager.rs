@@ -629,9 +629,6 @@ where
             .generate_po_token(content_binding)
             .await?;
 
-        // Validate the generated token
-        self.validate_po_token(&po_token)?;
-
         let expires_at = Utc::now() + Duration::hours(self.token_ttl_hours);
 
         tracing::info!("Generated POT token: {}", po_token);
@@ -747,9 +744,6 @@ where
             .generate_po_token(&context.visitor_data)
             .await?;
 
-        // Validate the generated token
-        self.validate_po_token(&po_token)?;
-
         // Get token expiry info
         let expires_at =
             SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
@@ -777,9 +771,6 @@ where
         // Use video_id as identifier
         let po_token = self.botguard_client.generate_po_token(video_id).await?;
 
-        // Validate the generated token
-        self.validate_po_token(&po_token)?;
-
         // Get token expiry info
         let expires_at =
             SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
@@ -804,9 +795,6 @@ where
             .generate_po_token(&context.visitor_data)
             .await?;
 
-        // Validate the generated token
-        self.validate_po_token(&po_token)?;
-
         let expires_at =
             SystemTime::now() + std::time::Duration::from_secs(self.token_ttl_hours as u64 * 3600);
 
@@ -815,29 +803,6 @@ where
             PotTokenType::ColdStart,
             expires_at,
         ))
-    }
-
-    /// Validate POT token format
-    fn validate_po_token(&self, token: &str) -> Result<()> {
-        // POT tokens should be at least 80 characters and at most 1500 characters
-        // Real BotGuard tokens can vary significantly in length:
-        // - Simple tokens: ~100-250 characters (short video IDs)
-        // - Complex tokens: ~800-1000 characters (complex content bindings with protobuf data)
-        // Increased upper limit from 250 to 1500 to accommodate tokens with complex
-        // content bindings (issue #93). Documentation indicates average size ~1KB.
-        if token.len() < 80 || token.len() > 1500 {
-            return Err(crate::Error::invalid_pot_token(token));
-        }
-
-        // POT tokens should contain only base64-like characters (alphanumeric, -, _, =, /)
-        if !token
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '=' || c == '/')
-        {
-            return Err(crate::Error::invalid_pot_token(token));
-        }
-
-        Ok(())
     }
 
     /// Get diagnostic information about the session manager
@@ -1213,41 +1178,6 @@ mod tests {
         assert_eq!(context.token_type, PotTokenType::SessionBound);
         assert_eq!(context.visitor_data, visitor_data);
         assert_eq!(context.video_id, None);
-    }
-
-    #[tokio::test]
-    async fn test_validate_po_token() {
-        let settings = Settings::default();
-        let manager = SessionManager::new(settings);
-
-        // Valid token should pass - use typical BotGuard token length for simple content
-        let valid_token = "A".repeat(96);
-        assert!(manager.validate_po_token(&valid_token).is_ok());
-
-        // Valid token at previous upper boundary should pass (issue #89)
-        let long_valid_token = "A".repeat(212);
-        assert!(manager.validate_po_token(&long_valid_token).is_ok());
-
-        // Valid token for complex content bindings (issue #93)
-        // Real-world tokens with complex protobuf content bindings can be ~800 characters
-        let complex_token = "A".repeat(792);
-        assert!(manager.validate_po_token(&complex_token).is_ok());
-
-        // Valid token near new upper boundary should pass
-        let very_long_token = "A".repeat(1400);
-        assert!(manager.validate_po_token(&very_long_token).is_ok());
-
-        // Too short should fail
-        let short_token = "A".repeat(70);
-        assert!(manager.validate_po_token(&short_token).is_err());
-
-        // Too long should fail (above new 1500 limit)
-        let too_long_token = "A".repeat(1600);
-        assert!(manager.validate_po_token(&too_long_token).is_err());
-
-        // Invalid characters should fail
-        let invalid_token = format!("{}{}", "A".repeat(85), "!@#$%");
-        assert!(manager.validate_po_token(&invalid_token).is_err());
     }
 
     #[tokio::test]

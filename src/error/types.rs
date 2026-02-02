@@ -179,13 +179,6 @@ pub enum Error {
     #[error("Missing video ID for content-bound POT token")]
     MissingVideoId,
 
-    /// POT token format validation errors
-    #[error("Invalid POT token format: {token}")]
-    InvalidPotToken {
-        /// The invalid token
-        token: String,
-    },
-
     /// POT token expiration errors
     #[error("POT token expired")]
     TokenExpired,
@@ -391,7 +384,6 @@ impl Error {
             Error::Session(..) => "session",
             Error::TokenGenerationLegacy(..) => "token_generation",
             Error::MissingVideoId => "pot_token",
-            Error::InvalidPotToken { .. } => "pot_token",
             Error::TokenExpired => "pot_token",
             Error::BotGuardLegacy { .. } => "botguard",
             Error::CacheLegacy { .. } => "cache",
@@ -477,13 +469,6 @@ impl Error {
     /// Create a missing video ID error
     pub fn missing_video_id() -> Self {
         Self::MissingVideoId
-    }
-
-    /// Create an invalid POT token format error
-    pub fn invalid_pot_token(token: impl Into<String>) -> Self {
-        Self::InvalidPotToken {
-            token: token.into(),
-        }
     }
 
     /// Create a token expired error
