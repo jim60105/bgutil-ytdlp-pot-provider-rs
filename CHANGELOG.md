@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-03
+
+### Changed
+
+- Changed: Removed POT token validation to match TypeScript implementation, eliminating false positives for complex content bindings with protobuf data
+
+### Fixed
+
+- Fixed: Allow hyphen-prefixed values in content-binding argument to support YouTube video IDs starting with dash (e.g., -6OjhRWNLfk)
+
 ## [0.6.3] - 2026-01-23
 
 ### Fixed
@@ -268,7 +278,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.0...v0.6.1
