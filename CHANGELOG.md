@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-17
+
+### Added
+
+- Added: Linux aarch64 (ARM64) binary build target in release workflow (#100)
+- Added: Multi-platform container image support for linux/arm64 alongside linux/amd64 (#100)
+- Added: Cross-compilation toolchain setup for aarch64 target with gcc-aarch64-linux-gnu
+- Added: Dynamic Rust target triple resolution in Containerfile based on Docker TARGETARCH
+
+### Changed
+
+- Changed: Multi-arch container builds migrated from QEMU emulation to native ARM64 runners for massive performance improvements (#102)
+- Changed: Container build workflow refactored to parallel build → merge architecture
+- Changed: Build job now uses matrix strategy with ubuntu-latest (linux/amd64) and ubuntu-24.04-arm (linux/arm64)
+- Changed: Per-platform cache keys implemented to prevent conflicts (cache-linux-amd64, cache-linux-arm64)
+- Changed: Composite action `container-reused-steps/action.yml` reduced in scope to setup only
+- Changed: Manifest list creation moved to dedicated merge job with digest-based push
+
+### Fixed
+
+- Fixed: Shell variable quoting to prevent word splitting and globbing in CI scripts
+
 ## [0.6.4] - 2026-02-03
 
 ### Changed
@@ -278,7 +300,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.1...v0.6.2
