@@ -35,8 +35,8 @@ jobs:
 
       - name: Prepare platform variables
         run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
 
       - name: Setup container environment
         id: setup
@@ -132,21 +132,22 @@ jobs:
           echo "Final digest references: $digest_refs"
 
           # Create manifest list with all tags across all registries
+          # shellcheck disable=SC2046,SC2086
           docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<<$DOCKER_METADATA_OUTPUT_JSON) \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<<"$DOCKER_METADATA_OUTPUT_JSON") \
             $digest_refs
 
       - name: Get final manifest digest
         id: get_digest
         run: |
           # Get the digest of the manifest list from GHCR
-          IMAGE_TAG=$(jq -cr '.tags[] | select(startswith("ghcr.io/"))' <<<$DOCKER_METADATA_OUTPUT_JSON | head -n1)
+          IMAGE_TAG=$(jq -cr '.tags[] | select(startswith("ghcr.io/"))' <<<"$DOCKER_METADATA_OUTPUT_JSON" | head -n1)
           echo "Using tag for digest lookup: $IMAGE_TAG"
           DIGEST_RAW=$(docker buildx imagetools inspect "$IMAGE_TAG" --format "{{.Manifest.Digest}}")
           echo "Raw digest output: $DIGEST_RAW"
           DIGEST=$(echo "$DIGEST_RAW" | grep -oE 'sha256:[a-f0-9]{64}' | head -n1)
           echo "Extracted digest: $DIGEST"
-          echo "manifest_digest=$DIGEST" >> $GITHUB_OUTPUT
+          echo "manifest_digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
       # Attest build provenance for each registry
       - name: Attest GitHub Container Registry image
