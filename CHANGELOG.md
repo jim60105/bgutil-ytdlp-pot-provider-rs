@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-02-18
+
+### Fixed
+
+- Fixed: Linux aarch64 cross-compilation failure due to missing OpenSSL by adding vendored-openssl feature (#100)
+
 ## [0.7.0] - 2026-02-17
 
 ### Added

@@ -254,9 +254,9 @@ main() {
     
     # 1. Code compilation check
     if [[ "${VERBOSE}" == "true" ]]; then
-        run_check "Code Compilation Check" "cargo check --all-features"
+        run_check "Code Compilation Check" "cargo check"
     else
-        run_check "Code Compilation Check" "cargo check --all-features --quiet"
+        run_check "Code Compilation Check" "cargo check --quiet"
     fi
 
     # 2. Code formatting check
@@ -264,9 +264,9 @@ main() {
 
     # 3. Clippy linting check
     if [[ "${VERBOSE}" == "true" ]]; then
-        run_check "Clippy Code Quality Check" "cargo clippy --all-features -- -D warnings"
+        run_check "Clippy Code Quality Check" "cargo clippy -- -D warnings"
     else
-        run_check "Clippy Code Quality Check" "cargo clippy --all-features --quiet -- -D warnings"
+        run_check "Clippy Code Quality Check" "cargo clippy --quiet -- -D warnings"
     fi
 
     # 4. Documentation generation check
@@ -280,9 +280,9 @@ main() {
     doc_output=$(mktemp)
 
     if [[ "${VERBOSE}" == "true" ]]; then
-        cargo doc --all-features --no-deps --document-private-items 2>&1 | tee "$doc_output"
+        cargo doc --no-deps --document-private-items 2>&1 | tee "$doc_output"
     else
-        cargo doc --all-features --no-deps --document-private-items > "$doc_output" 2>&1
+        cargo doc --no-deps --document-private-items > "$doc_output" 2>&1
     fi
 
     # Check for critical errors (excluding known lint warnings)
@@ -309,7 +309,7 @@ main() {
     rm -f "$doc_output"
 
     # 5. Documentation examples test
-    run_test_with_conditional_output "Documentation Examples Test" "cargo test --doc --all-features"
+    run_test_with_conditional_output "Documentation Examples Test" "cargo test --doc"
 
     # 6. Documentation coverage check  
     if [[ "${VERBOSE}" == "true" ]]; then
@@ -319,9 +319,9 @@ main() {
 
     # Check for missing documentation (allow warnings, don't fail build)
     if [[ "${VERBOSE}" == "true" ]]; then
-        missing_docs_output=$(cargo clippy --all-features -- -W missing_docs 2>&1 | grep -v "warning\[E0602\]" | grep "missing documentation" || true)
+        missing_docs_output=$(cargo clippy -- -W missing_docs 2>&1 | grep -v "warning\[E0602\]" | grep "missing documentation" || true)
     else
-        missing_docs_output=$(cargo clippy --all-features --quiet -- -W missing_docs 2>&1 | grep -v "warning\[E0602\]" | grep "missing documentation" || true)
+        missing_docs_output=$(cargo clippy --quiet -- -W missing_docs 2>&1 | grep -v "warning\[E0602\]" | grep "missing documentation" || true)
     fi
 
     if [ -n "$missing_docs_output" ]; then

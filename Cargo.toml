@@ -1,6 +1,6 @@
 [package]
 name = "bgutil-ytdlp-pot-provider"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 authors = ["Jim Chen <Jim@ChenJ.im>", "Brian Le <brainicism@gmail.com>"]
 description = "BgUtils POT Provider - Rust implementation for generating YouTube POT tokens"
@@ -42,6 +42,10 @@ doc_markdown = "allow"                  # Allow markdown formatting
 
 [lints.rust]
 missing_docs = "allow" # Allow missing docs at rust level
+
+[features]
+# Use vendored OpenSSL for cross-compilation targets
+vendored-openssl = ["openssl/vendored"]
 
 [dependencies]
 # Dependencies
@@ -85,6 +89,9 @@ url = "2.5.4"
 
 # BotGuard integration - using dedicated Rust crate
 rustypipe-botguard = "0.1.2"
+
+# OpenSSL (optional, for vendored cross-compilation support)
+openssl = { version = "0.10", optional = true }
 
 # Time handling (used by rustypipe-botguard)
 time = { version = "0.3.43", features = ["formatting", "parsing"] }
