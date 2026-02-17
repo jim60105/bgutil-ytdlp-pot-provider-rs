@@ -21,6 +21,15 @@ RUN install -d -m 775 -o $UID -g 0 /newdir
 # Enable static linking for Rust binaries
 ENV RUSTFLAGS="-C target-feature=+crt-static"
 
+# Determine Rust target triple from Docker TARGETARCH
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+      amd64) echo "x86_64-unknown-linux-gnu" > /tmp/rust-target ;; \
+      arm64) echo "aarch64-unknown-linux-gnu" > /tmp/rust-target ;; \
+      *) echo "unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    rustup target add $(cat /tmp/rust-target)
+
 ########################################
 # Planner stage
 # Generate a recipe for the project, containing all dependencies information for cooking
@@ -46,10 +55,18 @@ RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/v
     apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
-    curl
+    curl && \
+    # Install cross-compilation tools for aarch64 if needed
+    if [ "${TARGETARCH}" = "arm64" ]; then \
+      apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu; \
+    fi
+
+# Set cross-compilation linker for aarch64
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 
 RUN --mount=source=/app/recipe.json,target=recipe.json,from=planner \
-    cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path recipe.json --all-targets --locked
+    RUST_TARGET=$(cat /tmp/rust-target) && \
+    cargo chef cook --release --target ${RUST_TARGET} --recipe-path recipe.json --all-targets --locked
 
 ########################################
 # Test stage
@@ -64,7 +81,8 @@ RUN --mount=source=src,target=src,z \
     --mount=source=Cargo.toml,target=Cargo.toml,z \
     --mount=source=Cargo.lock,target=Cargo.lock,z \
     --mount=source=.config/nextest.toml,target=.config/nextest.toml,z \
-    cargo nextest run --release --target x86_64-unknown-linux-gnu --all-targets --locked
+    RUST_TARGET=$(cat /tmp/rust-target) && \
+    cargo nextest run --release --target ${RUST_TARGET} --all-targets --locked
 
 ########################################
 # Builder stage
@@ -77,7 +95,8 @@ ARG NAME
 RUN --mount=source=src,target=src,z \
     --mount=source=Cargo.toml,target=Cargo.toml,z \
     --mount=source=Cargo.lock,target=Cargo.lock,z \
-    cargo build --release --target x86_64-unknown-linux-gnu --bin ${NAME} --locked
+    RUST_TARGET=$(cat /tmp/rust-target) && \
+    cargo build --release --target ${RUST_TARGET} --bin ${NAME} --locked
 
 ########################################
 # Compress stage
@@ -92,14 +111,21 @@ ARG TARGETVARIANT
 ARG NAME
 RUN --mount=type=cache,id=apt-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/cache/apt \
     --mount=type=cache,id=aptlists-$TARGETARCH$TARGETVARIANT,sharing=locked,target=/var/lib/apt/lists \
-    --mount=from=builder,source=/app/target/x86_64-unknown-linux-gnu/release/${NAME},target=/tmp/app \
+    --mount=from=builder,source=/app/target,target=/tmp/target \
     echo "deb http://deb.debian.org/debian bookworm-backports main" >> /etc/apt/sources.list && \
     apt-get update && apt-get install -y -t bookworm-backports \
     upx-ucl && \
     apt-get install -y wget && \
-    cp /tmp/app /${NAME} && \
-    # Download static dumb-init binary \
-    wget -O /dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 && \
+    # Copy binary from the correct target directory
+    RUST_TARGET=$(cat /tmp/rust-target) && \
+    cp /tmp/target/${RUST_TARGET}/release/${NAME} /${NAME} && \
+    # Download static dumb-init binary for the correct architecture
+    case "${TARGETARCH}" in \
+      amd64) DUMB_INIT_ARCH="x86_64" ;; \
+      arm64) DUMB_INIT_ARCH="aarch64" ;; \
+      *) echo "unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    wget -O /dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_${DUMB_INIT_ARCH} && \
     chmod +x /dumb-init && \
     #! UPX will skip small files and large files \
     # https://github.com/upx/upx/blob/5bef96806860382395d9681f3b0c69e0f7e853cf/src/p_unix.cpp#L80 \
