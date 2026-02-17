@@ -1,47 +1,169 @@
-# Check this guide for more information about publishing to ghcr.io with GitHub Actions:
-# https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions
-
 # Build the container image and push it to the registry
 name: build-container
 
 on:
-  # Trigger the workflow on tags push that match the pattern v*, for example v1.0.0
   push:
     tags:
       - "v*"
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets the permissions granted to the GITHUB_TOKEN for the actions in this job.
 permissions:
   contents: read
   packages: write
   id-token: write
   attestations: write
 
-jobs:
-  docker-tag:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image:
-          - name: bgutil-pot
-            binary: bgutil-pot
+env:
+  IMAGE_NAME: bgutil-pot
 
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Build and push container
+      - name: Prepare platform variables
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Setup container environment
+        id: setup
         uses: ./.github/workflows/container-reused-steps
         with:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-          IMAGE_NAME: ${{ matrix.image.name }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
           CONTAINERFILE: ./Containerfile
-          NAME: ${{ matrix.image.binary }}
+
+      - name: Build and push by digest
+        uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          file: ${{ steps.setup.outputs.containerfile }}
+          push: true
+          target: final
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.setup.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            RELEASE=${{ github.run_number }}
+            NAME=bgutil-pot
+          cache-from: |
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:cache-${{ env.PLATFORM_PAIR }}
+          cache-to: |
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:cache-${{ env.PLATFORM_PAIR }},mode=max
+          outputs: |
+            type=image,"name=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }},${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }},quay.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
+          sbom: true
+          provenance: true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          echo "${digest#sha256:}" > /tmp/digests/${{ env.PLATFORM_PAIR }}
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download digests
+        uses: actions/download-artifact@v5
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Setup container environment
+        id: setup
+        uses: ./.github/workflows/container-reused-steps
+        with:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          CONTAINERFILE: ./Containerfile
+
+      - name: Create manifest list and push to all registries
+        run: |
+          echo "Creating multi-arch manifest list..."
+          cd /tmp/digests
+          echo "Files in /tmp/digests:"
+          ls -la
+
+          # Build digest references from all platform builds
+          # The images were pushed to all three registries by digest,
+          # so we can use any registry as the source for imagetools.
+          digest_refs=""
+          for file in linux-*; do
+            if [[ -f "$file" ]]; then
+              digest=$(cat "$file")
+              echo "Processing $file with digest: $digest"
+              digest_refs+="ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@sha256:$digest "
+            fi
+          done
+          echo "Final digest references: $digest_refs"
+
+          # Create manifest list with all tags across all registries
+          # shellcheck disable=SC2046,SC2086
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<<"$DOCKER_METADATA_OUTPUT_JSON") \
+            $digest_refs
+
+      - name: Get final manifest digest
+        id: get_digest
+        run: |
+          # Get the digest of the manifest list from GHCR
+          IMAGE_TAG=$(jq -cr '.tags[] | select(startswith("ghcr.io/"))' <<<"$DOCKER_METADATA_OUTPUT_JSON" | head -n1)
+          echo "Using tag for digest lookup: $IMAGE_TAG"
+          DIGEST_RAW=$(docker buildx imagetools inspect "$IMAGE_TAG" --format "{{.Manifest.Digest}}")
+          echo "Raw digest output: $DIGEST_RAW"
+          DIGEST=$(echo "$DIGEST_RAW" | grep -oE 'sha256:[a-f0-9]{64}' | head -n1)
+          echo "Extracted digest: $DIGEST"
+          echo "manifest_digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      # Attest build provenance for each registry
+      - name: Attest GitHub Container Registry image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.get_digest.outputs.manifest_digest }}
+
+      - name: Attest Docker Hub image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: index.docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.get_digest.outputs.manifest_digest }}
+
+      - name: Attest Quay image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: quay.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.get_digest.outputs.manifest_digest }}
