@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed: Initial attestation extraction from YouTube webpage by adding support for the new `window.ytAtN(...)` format alongside the legacy `window.ytAtR = ...` format (plugin v1.3.0)
+
 ## [0.7.1] - 2026-02-18
 
 ### Fixed
