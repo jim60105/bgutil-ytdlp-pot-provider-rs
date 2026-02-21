@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-02-21
+
 ### Fixed
 
 - Fixed: Initial attestation extraction from YouTube webpage by adding support for the new `window.ytAtN(...)` format alongside the legacy `window.ytAtR = ...` format (plugin v1.3.0)
@@ -310,7 +312,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added comprehensive input validation and sanitization
 - Enhanced token generation security using authentic BotGuard integration
 
-[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/compare/v0.6.2...v0.6.3
