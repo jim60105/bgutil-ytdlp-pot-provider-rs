@@ -228,7 +228,7 @@ For occasional use or environments where running a persistent service is not des
 
 ```bash
 # Specify the script path for yt-dlp integration
-yt-dlp --extractor-args "youtubepot-bgutilscript:script_path=/path/to/bgutil-pot" "VIDEO_URL"
+yt-dlp --extractor-args "youtubepot-bgutilcli:cli_path=/path/to/bgutil-pot" "VIDEO_URL"
 ```
 
 ### Configuration
@@ -328,7 +328,7 @@ yt-dlp -v "https://www.youtube.com/watch?v=VIDEO_ID"
 You should see output similar to:
 
 ```text
-[debug] [youtube] [pot] PO Token Providers: bgutil:http-1.2.2 (external), bgutil:script-1.2.2 (external)
+[debug] [youtube] [pot] PO Token Providers: bgutil:cli-0.8.1 (external), bgutil:http-0.8.1 (external)
 ```
 
 ### FFI / Dynamic Library Mode
